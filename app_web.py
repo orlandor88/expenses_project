@@ -115,7 +115,7 @@ def reports_home():
 @app.route("/reports/monthly")
 def report_monthly():
     query = """
-        SELECT substr(date, 1, 7) AS luna, SUM(price * cantitate)
+        SELECT substr(date, 1, 7) AS luna, SUM(price * quantity) AS total
         FROM expenses
         GROUP BY substr(date, 1, 7)
         ORDER BY luna DESC
@@ -127,10 +127,11 @@ def report_monthly():
 @app.route("/reports/products")
 def report_products():
     query = """
-        SELECT name, SUM(price * cantitate)
-        FROM expenses
-        GROUP BY name
-        ORDER BY SUM(price * cantitate) DESC
+        SELECT p.name, SUM(e.price * e.quantity) AS total
+        FROM expenses e
+        JOIN products p ON e.product_id = p.id
+        GROUP BY p.name
+        ORDER BY total DESC
     """
     data = query_db(EXPENSES_DB, query)
     return render_template("report_products.html", data=data)
