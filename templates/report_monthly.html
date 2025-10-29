@@ -11,9 +11,27 @@
         <a href="/reports">Rapoarte</a>
         <a href="/reports/monthly">Rapoarte lunare</a>
         <a href="/reports/products">Rapoarte pe produse</a>
+        <a href="/reports/stores">Rapoarte pe magazine</a>
     </div>
 <div class="container">
     <h1>📆 Cheltuieli pe lună</h1>
+    
+    <!-- Date Range Filter Form -->
+    <form class="filter-form" method="GET">
+        <input type="date" name="start_date" value="{{ start_date if start_date }}" placeholder="Data început">
+        <input type="date" name="end_date" value="{{ end_date if end_date }}" placeholder="Data sfârșit">
+        <button type="submit">Filtrează</button>
+        {% if start_date or end_date %}
+            <a href="/reports/monthly" class="reset-link">Resetează filtrele</a>
+        {% endif %}
+        
+        <!-- CSV Export -->
+        <a href="{{ request.path }}{% if request.query_string %}?{{ request.query_string }}&{% else %}?{% endif %}format=csv" 
+           class="export-link">
+            📥 Exportă CSV
+        </a>
+    </form>
+
     <table>
         <thead>
             <tr>

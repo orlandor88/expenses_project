@@ -1,7 +1,9 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, make_response, send_file
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 import os
+import csv
+from io import StringIO
 
 app = Flask(__name__)
 
@@ -106,35 +108,114 @@ def add_expense_route():
     add_expense(product_id, store_id, price, quantity, date_value)
     return redirect('/')
 
+# === Funcții auxiliare pentru rapoarte ===
+def get_date_filter_clause(start_date=None, end_date=None):
+    """Generate SQL WHERE clause for date filtering"""
+    conditions = []
+    params = []
+    
+    if start_date:
+        conditions.append("date >= ?")
+        params.append(start_date)
+    if end_date:
+        conditions.append("date <= ?")
+        params.append(end_date)
+    
+    if conditions:
+        return " WHERE " + " AND ".join(conditions), params
+    return "", []
+
+def generate_csv(data, headers):
+    """Generate CSV file from data"""
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow(headers)
+    writer.writerows(data)
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = "attachment; filename=export.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
 # === Rapoarte ===
 @app.route("/reports")
 def reports_home():
     return render_template("reports.html")
 
-
 @app.route("/reports/monthly")
 def report_monthly():
-    query = """
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    where_clause, params = get_date_filter_clause(start_date, end_date)
+    
+    query = f"""
         SELECT substr(date, 1, 7) AS luna, SUM(price * quantity) AS total
         FROM expenses
+        {where_clause}
         GROUP BY substr(date, 1, 7)
         ORDER BY luna DESC
     """
-    data = query_db(EXPENSES_DB, query)
-    return render_template("report_monthly.html", data=data)
-
+    data = query_db(EXPENSES_DB, query, params)
+    
+    if request.args.get('format') == 'csv':
+        headers = ['Luna', 'Total (lei)']
+        return generate_csv(data, headers)
+        
+    return render_template("report_monthly.html", data=data, 
+                         start_date=start_date, end_date=end_date)
 
 @app.route("/reports/products")
 def report_products():
-    query = """
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    where_clause, params = get_date_filter_clause(start_date, end_date)
+    
+    if where_clause:
+        where_clause = where_clause.replace("date", "e.date")
+    
+    query = f"""
         SELECT p.name, SUM(e.price * e.quantity) AS total
         FROM expenses e
         JOIN products p ON e.product_id = p.id
+        {where_clause}
         GROUP BY p.name
         ORDER BY total DESC
     """
-    data = query_db(EXPENSES_DB, query)
-    return render_template("report_products.html", data=data)
+    data = query_db(EXPENSES_DB, query, params)
+    
+    if request.args.get('format') == 'csv':
+        headers = ['Produs', 'Total (lei)']
+        return generate_csv(data, headers)
+        
+    return render_template("report_products.html", data=data,
+                         start_date=start_date, end_date=end_date)
+
+@app.route("/reports/stores")
+def report_stores():
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    where_clause, params = get_date_filter_clause(start_date, end_date)
+    
+    if where_clause:
+        where_clause = where_clause.replace("date", "e.date")
+    
+    query = f"""
+        SELECT s.name, 
+               COUNT(*) as num_transactions,
+               SUM(e.price * e.quantity) AS total
+        FROM expenses e
+        JOIN stores s ON e.store_id = s.id
+        {where_clause}
+        GROUP BY s.name
+        ORDER BY total DESC
+    """
+    data = query_db(EXPENSES_DB, query, params)
+    
+    if request.args.get('format') == 'csv':
+        headers = ['Magazin', 'Număr tranzacții', 'Total (lei)']
+        return generate_csv(data, headers)
+        
+    return render_template("report_stores.html", data=data,
+                         start_date=start_date, end_date=end_date)
 
 if __name__ == '__main__':
     app.run(debug=True)
