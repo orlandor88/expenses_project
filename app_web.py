@@ -1,7 +1,13 @@
 from flask import Flask, render_template, request, redirect
 import sqlite3
+from datetime import date
+import os
 
 app = Flask(__name__)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PRODUCTS_DB = os.path.join(BASE_DIR, "products.db")
+EXPENSES_DB = os.path.join(BASE_DIR, "expenses.db")
 
 # --- Funcții produse ---
 def get_products():
@@ -60,6 +66,15 @@ def get_expenses():
     conn.close()
     return expenses
 
+# --- Funcții auxiliare ---
+def query_db(db_name, query, params=()):
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    results = cursor.fetchall()
+    conn.close()
+    return results
+
 # --- Rute web ---
 @app.route('/')
 def index():
@@ -90,6 +105,35 @@ def add_expense_route():
     date_value = request.form['date']
     add_expense(product_id, store_id, price, quantity, date_value)
     return redirect('/')
+
+# === Rapoarte ===
+@app.route("/reports")
+def reports_home():
+    return render_template("reports.html")
+
+
+@app.route("/reports/monthly")
+def report_monthly():
+    query = """
+        SELECT substr(date, 1, 7) AS luna, SUM(price * cantitate)
+        FROM expenses
+        GROUP BY substr(date, 1, 7)
+        ORDER BY luna DESC
+    """
+    data = query_db(EXPENSES_DB, query)
+    return render_template("report_monthly.html", data=data)
+
+
+@app.route("/reports/products")
+def report_products():
+    query = """
+        SELECT name, SUM(price * cantitate)
+        FROM expenses
+        GROUP BY name
+        ORDER BY SUM(price * cantitate) DESC
+    """
+    data = query_db(EXPENSES_DB, query)
+    return render_template("report_products.html", data=data)
 
 if __name__ == '__main__':
     app.run(debug=True)
