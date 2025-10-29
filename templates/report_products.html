@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Raport pe produse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>🛒 Cheltuieli pe produse</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Produs</th>
+                <th>Total (lei)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data %}
+                <tr>
+                    <td>{{ row[0] }}</td>
+                    <td>{{ "%.2f"|format(row[1]) }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="/reports">⬅️ Înapoi la rapoarte</a>
+</div>
+</body>
+</html>
