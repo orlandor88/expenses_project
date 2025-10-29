@@ -1,0 +1,19 @@
+# Fisiere baze de date
+*.db
+*.sqlite3
+
+# Fisiere temporare Python
+__pycache__/
+*.pyc
+
+# Environment virtual
+venv/
+.env/
+
+# Fișiere generate Flask / debug
+instance/
+*.log
+
+# Cache-uri editor (VSCode, etc)
+.vscode/
+.idea/
