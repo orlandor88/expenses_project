@@ -10,10 +10,14 @@ __pycache__/
 venv/
 .env/
 
-# Fișiere generate Flask / debug
+# Fisiere generate Flask / debug
 instance/
 *.log
 
-# Cache-uri editor (VSCode, etc)
+# Cache-uri editor (VSCode, PyCharm)
 .vscode/
 .idea/
+
+# Foldere excluse
+/bonuri/
+/old/
