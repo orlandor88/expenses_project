@@ -98,6 +98,18 @@ def add_store_route():
     add_store(name)
     return redirect('/')
 
+
+@app.route('/stores/new')
+def new_store_page():
+    return render_template('add_store.html')
+
+
+@app.route('/record_expense')
+def record_expense():
+    products = get_products()
+    stores = get_stores()
+    return render_template('record_expense.html', products=products, stores=stores)
+
 @app.route('/add_expense', methods=['POST'])
 def add_expense_route():
     product_id = int(request.form['product_id'])

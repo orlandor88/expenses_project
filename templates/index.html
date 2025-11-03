@@ -15,66 +15,23 @@
     <div class="container">
         <h1>Gestionare Produse și Cheltuieli</h1>
 
-        <!-- PRODUSE -->
         <section class="section">
-            <h2>Produse existente</h2>
-            <ul>
-                {% for p in products %}
-                    <li>{{ p[0] }} - {{ p[1] }}</li>
-                {% endfor %}
-            </ul>
+            <h2>Inregistrare cheltuiala</h2>
+            <p>
+                <a class="btn" href="/record_expense">↪️ Mergi la înregistrare cheltuială</a>
+            </p>
         </section>
 
-        <section class="section">
-            <h2>Adaugă produs nou</h2>
-            <form method="POST" action="/add_product">
-                <input type="text" name="name" placeholder="Nume produs" required>
-                <input type="text" name="category" placeholder="Categorie" required>
-                <button type="submit">Adaugă</button>
-            </form>
-        </section>
-
-        <!-- MAGAZINE -->
         <section class="section">
             <h2>Magazine existente</h2>
             <ul>
                 {% for s in stores %}
                     <li>{{ s[0] }} - {{ s[1] }}</li>
+                {% else %}
+                    <li>Niciun magazin înregistrat</li>
                 {% endfor %}
             </ul>
-        </section>
-
-        <section class="section">
-            <h2>Adaugă magazin nou</h2>
-            <form method="POST" action="/add_store">
-                <input type="text" name="name" placeholder="Nume magazin" required>
-                <button type="submit">Adaugă</button>
-            </form>
-        </section>
-
-        <!-- CHELTUIELI -->
-        <section class="section">
-            <h2>Adaugă cheltuială</h2>
-            <form method="POST" action="/add_expense">
-                <select name="product_id" required>
-                    <option value="" disabled selected>Alege produsul</option>
-                    {% for p in products %}
-                        <option value="{{ p[0] }}">{{ p[1] }}</option>
-                    {% endfor %}
-                </select>
-
-                <select name="store_id" required>
-                    <option value="" disabled selected>Alege magazinul</option>
-                    {% for s in stores %}
-                        <option value="{{ s[0] }}">{{ s[1] }}</option>
-                    {% endfor %}
-                </select>
-
-                <input type="number" step="0.01" name="price" placeholder="Preț" required>
-                <input type="number" step="0.01" name="quantity" placeholder="Cantitate" required>
-                <input type="date" name="date" required>
-                <button type="submit">Adaugă</button>
-            </form>
+            <p><a href="/stores/new" class="btn">Adaugă magazin nou</a></p>
         </section>
 
         <section class="section">
@@ -100,9 +57,16 @@
                             <td>{{ e[4] }}</td>
                             <td>{{ e[5] }}</td>
                         </tr>
+                    {% else %}
+                        <tr><td colspan="6">Nicio cheltuială înregistrată</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </section>
+
+        <section class="section">
+            <h2>Rapoarte</h2>
+            <p><a href="/reports" class="btn">Vezi rapoarte</a></p>
         </section>
     </div>
 </body>

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Adaugă Magazin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <a href="/">Acasă</a>
+        <a href="/reports">Rapoarte</a>
+    </div>
+    <div class="container">
+        <h1>Adaugă magazin</h1>
+        <form method="POST" action="/add_store">
+            <input type="text" name="name" placeholder="Nume magazin" required>
+            <button type="submit">Adaugă magazin</button>
+        </form>
+        <a href="/">⬅️ Înapoi</a>
+    </div>
+</body>
+</html>
