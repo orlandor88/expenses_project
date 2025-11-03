@@ -108,8 +108,7 @@ def query_db(db_name, query, params=()):
 def index():
     products = get_products()
     stores = get_stores()
-    expenses = get_expenses()
-    return render_template('index.html', products=products, stores=stores, expenses=expenses)
+    return render_template('index.html', products=products, stores=stores)
 
 @app.route('/add_product', methods=['POST'])
 def add_product_route():
@@ -173,7 +172,15 @@ def add_expense_route():
     quantity = float(request.form['quantity'])
     date_value = request.form['date']
     add_expense(product_id, store_id, price, quantity, date_value)
-    return redirect('/')
+    # After adding an expense show the expenses page
+    return redirect('/cheltuieli')
+
+
+@app.route('/cheltuieli')
+def cheltuieli():
+    """Page that lists all expenses."""
+    expenses = get_expenses()
+    return render_template('cheltuieli.html', expenses=expenses)
 
 # === Funcții auxiliare pentru rapoarte ===
 def get_date_filter_clause(start_date=None, end_date=None):

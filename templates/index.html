@@ -8,6 +8,7 @@
 <body>
     <div class="navbar">
         <a href="/">Acasă</a>
+        <a href="/cheltuieli">Cheltuieli</a>
         <a href="/reports">Rapoarte</a>
         <a href="/reports/monthly">Rapoarte lunare</a>
         <a href="/reports/products">Rapoarte pe produse</a>
@@ -28,33 +29,10 @@
         </section>
 
         <section class="section">
-            <h2>Cheltuieli</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Produs</th>
-                        <th>Magazin</th>
-                        <th>Preț</th>
-                        <th>Cantitate</th>
-                        <th>Data</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for e in expenses %}
-                        <tr>
-                            <td>{{ e[0] }}</td>
-                            <td>{{ e[1] }}</td>
-                            <td>{{ e[2] }}</td>
-                            <td>{{ e[3] }}</td>
-                            <td>{{ e[4] }}</td>
-                            <td>{{ e[5] }}</td>
-                        </tr>
-                    {% else %}
-                        <tr><td colspan="6">Nicio cheltuială înregistrată</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            
+            <p>
+                <a class="btn" href="/cheltuieli">Cheltuieli</a>
+            </p>
         </section>
 
         <section class="section">
