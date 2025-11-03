@@ -1,0 +1,6 @@
+1. let's modify the index page to only show:
+    a. Inregistrare cheltuiala - aici sa face o pagina separata cu inregistrare produs nou si adaugare cheltuiala. in caz ca este nevoie de adugare magazin sa ma trimita pe alta pagina sa il introduc.
+    b. Magazine existente
+    c. Cheltuieli
+    d. Rapoarte
+    
