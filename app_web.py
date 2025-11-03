@@ -98,9 +98,28 @@ def add_store_route():
     return redirect('/')
 
 
+def delete_store(store_id):
+    """Delete a store and any related expenses."""
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    # Remove expenses referencing this store first to keep DB consistent
+    cursor.execute("DELETE FROM expenses WHERE store_id = ?", (store_id,))
+    cursor.execute("DELETE FROM stores WHERE id = ?", (store_id,))
+    conn.commit()
+    conn.close()
+
+
+@app.route('/stores/delete', methods=['POST'])
+def delete_store_route():
+    store_id = int(request.form['store_id'])
+    delete_store(store_id)
+    return redirect('/stores/new')
+
+
 @app.route('/stores/new')
 def new_store_page():
-    return render_template('add_store.html')
+    stores = get_stores()
+    return render_template('add_store.html', stores=stores)
 
 
 @app.route('/record_expense')

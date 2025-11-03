@@ -16,6 +16,34 @@
             <input type="text" name="name" placeholder="Nume magazin" required>
             <button type="submit">Adaugă magazin</button>
         </form>
+
+        <h2>Magazine existente</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nume</th>
+                    <th>Acțiuni</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in stores %}
+                <tr>
+                    <td>{{ s[0] }}</td>
+                    <td>{{ s[1] }}</td>
+                    <td>
+                        <form method="POST" action="/stores/delete" onsubmit="return confirm('Șterge magazinul și toate cheltuielile asociate?')">
+                            <input type="hidden" name="store_id" value="{{ s[0] }}">
+                            <button type="submit">Șterge</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3">Niciun magazin înregistrat</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
         <a href="/">⬅️ Înapoi</a>
     </div>
 </body>
