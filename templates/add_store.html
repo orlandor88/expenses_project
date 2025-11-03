@@ -4,6 +4,49 @@
     <meta charset="UTF-8">
     <title>Adaugă Magazin</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .inline-form {
+            display: inline;
+        }
+        input[type="text"] {
+            margin: 2px;
+        }
+        button {
+            margin: 2px;
+        }
+        .alert {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .alert-success {
+            background-color: #dff0d8;
+            border: 1px solid #d6e9c6;
+            color: #3c763d;
+        }
+        .alert-error {
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            color: #a94442;
+        }
+    </style>
+    <script>
+        function toggleEdit(id) {
+            const form = document.getElementById(`edit-form-${id}`);
+            const nameSpan = document.getElementById(`name-${id}`);
+            const editBtn = document.getElementById(`edit-btn-${id}`);
+            
+            if (form.style.display === 'none') {
+                form.style.display = 'inline';
+                nameSpan.style.display = 'none';
+                editBtn.style.display = 'none';
+            } else {
+                form.style.display = 'none';
+                nameSpan.style.display = 'inline';
+                editBtn.style.display = 'inline';
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="navbar">
@@ -11,6 +54,12 @@
         <a href="/reports">Rapoarte</a>
     </div>
     <div class="container">
+        {% if message %}
+        <div class="alert {% if success %}alert-success{% else %}alert-error{% endif %}">
+            {{ message }}
+        </div>
+        {% endif %}
+        
         <h1>Adaugă magazin</h1>
         <form method="POST" action="/add_store">
             <input type="text" name="name" placeholder="Nume magazin" required>
@@ -30,9 +79,18 @@
                 {% for s in stores %}
                 <tr>
                     <td>{{ s[0] }}</td>
-                    <td>{{ s[1] }}</td>
                     <td>
-                        <form method="POST" action="/stores/delete" onsubmit="return confirm('Șterge magazinul și toate cheltuielile asociate?')">
+                        <form method="POST" action="/stores/update" class="inline-form" id="edit-form-{{ s[0] }}" style="display: none;">
+                            <input type="hidden" name="store_id" value="{{ s[0] }}">
+                            <input type="text" name="name" value="{{ s[1] }}" required>
+                            <button type="submit">Salvează</button>
+                            <button type="button" onclick="toggleEdit('{{ s[0] }}')">Anulează</button>
+                        </form>
+                        <span id="name-{{ s[0] }}">{{ s[1] }}</span>
+                    </td>
+                    <td>
+                        <button onclick="toggleEdit('{{ s[0] }}')" id="edit-btn-{{ s[0] }}">Editează</button>
+                        <form method="POST" action="/stores/delete" onsubmit="return confirm('Șterge magazinul și toate cheltuielile asociate?')" class="inline-form">
                             <input type="hidden" name="store_id" value="{{ s[0] }}">
                             <button type="submit">Șterge</button>
                         </form>

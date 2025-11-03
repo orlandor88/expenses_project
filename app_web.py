@@ -35,10 +35,37 @@ def get_stores():
     conn.close()
     return stores
 
-def add_store(name):
+def store_exists(name):
+    """Check if a store with this name already exists (case insensitive)."""
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO stores (name) VALUES (?)", (name,))
+    cursor.execute("SELECT 1 FROM stores WHERE UPPER(name) = UPPER(?)", (name,))
+    exists = cursor.fetchone() is not None
+    conn.close()
+    return exists
+
+def add_store(name):
+    """Add a new store if it doesn't already exist.
+    Returns: (bool, str) - (success, message)"""
+    if store_exists(name):
+        return False, f"Magazinul '{name.upper()}' există deja!"
+    
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    # Convert to upper case before saving
+    name = name.upper()
+    cursor.execute("INSERT INTO stores (name) VALUES (?)", (name,))
+    conn.commit()
+    conn.close()
+    return True, f"Magazinul '{name}' a fost adăugat cu succes!"
+
+def update_store_name(store_id, new_name):
+    """Update a store's name."""
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    # Convert to upper case before saving
+    new_name = new_name.upper()
+    cursor.execute("UPDATE stores SET name = ? WHERE id = ?", (new_name, store_id))
     conn.commit()
     conn.close()
 
@@ -94,8 +121,11 @@ def add_product_route():
 @app.route('/add_store', methods=['POST'])
 def add_store_route():
     name = request.form['name'].strip()
-    add_store(name)
-    return redirect('/')
+    success, message = add_store(name)
+    return render_template('add_store.html', 
+                         stores=get_stores(),
+                         message=message,
+                         success=success)
 
 
 def delete_store(store_id):
@@ -115,6 +145,13 @@ def delete_store_route():
     delete_store(store_id)
     return redirect('/stores/new')
 
+@app.route('/stores/update', methods=['POST'])
+def update_store_route():
+    store_id = int(request.form['store_id'])
+    new_name = request.form['name'].strip()
+    if new_name:  # Ensure name is not empty
+        update_store_name(store_id, new_name)
+    return redirect('/stores/new')
 
 @app.route('/stores/new')
 def new_store_page():
