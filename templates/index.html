@@ -16,21 +16,13 @@
         <h1>Gestionare Produse și Cheltuieli</h1>
 
         <section class="section">
-            <h2>Inregistrare cheltuiala</h2>
+            
             <p>
-                <a class="btn" href="/record_expense">↪️ Mergi la înregistrare cheltuială</a>
+                <a class="btn" href="/record_expense">Inregistrare cheltuială</a>
             </p>
         </section>
 
         <section class="section">
-            <h2>Magazine existente</h2>
-            <ul>
-                {% for s in stores %}
-                    <li>{{ s[0] }} - {{ s[1] }}</li>
-                {% else %}
-                    <li>Niciun magazin înregistrat</li>
-                {% endfor %}
-            </ul>
             <p><a href="/stores/new" class="btn">Adaugă magazin nou</a></p>
         </section>
 
@@ -65,8 +57,8 @@
         </section>
 
         <section class="section">
-            <h2>Rapoarte</h2>
-            <p><a href="/reports" class="btn">Vezi rapoarte</a></p>
+            
+            <p><a href="/reports" class="btn">Rapoarte</a></p>
         </section>
     </div>
 </body>
