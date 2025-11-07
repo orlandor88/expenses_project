@@ -11,6 +11,14 @@ PRODUCTS_DB = os.path.join(BASE_DIR, "products.db")
 EXPENSES_DB = os.path.join(BASE_DIR, "expenses.db")
 
 # --- Funcții produse ---
+def get_categories():
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, categorie FROM categorii ORDER BY categorie")
+    categories = cursor.fetchall()
+    conn.close()
+    return categories
+
 def get_products():
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
@@ -19,10 +27,10 @@ def get_products():
     conn.close()
     return products
 
-def add_product(name, category):
+def add_product(name, category_id):
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO products (name, category) VALUES (?, ?)", (name, category))
+    cursor.execute("INSERT INTO products (name, category_id) VALUES (?, ?)", (name, category_id))
     conn.commit()
     conn.close()
 
@@ -113,9 +121,9 @@ def index():
 @app.route('/add_product', methods=['POST'])
 def add_product_route():
     name = request.form['name'].strip()
-    category = request.form['category'].strip()
-    add_product(name, category)
-    return redirect('/')
+    category_id = int(request.form['category_id'])
+    add_product(name, category_id)
+    return redirect('/record_expense')
 
 @app.route('/add_store', methods=['POST'])
 def add_store_route():
@@ -162,7 +170,8 @@ def new_store_page():
 def record_expense():
     products = get_products()
     stores = get_stores()
-    return render_template('record_expense.html', products=products, stores=stores)
+    categories = get_categories()
+    return render_template('record_expense.html', products=products, stores=stores, categories=categories)
 
 @app.route('/add_expense', methods=['POST'])
 def add_expense_route():

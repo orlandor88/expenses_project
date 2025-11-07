@@ -21,7 +21,12 @@
             <h2>Adaugă produs nou</h2>
             <form method="POST" action="/add_product">
                 <input type="text" name="name" placeholder="Nume produs" required>
-                <input type="text" name="category" placeholder="Categorie" required>
+                <select name="category_id" required>
+                    <option value="" disabled selected>Alege categoria</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat[0] }}">{{ cat[1] }}</option>
+                    {% endfor %}
+                </select>
                 <button type="submit">Adaugă produs</button>
             </form>
         </section>
