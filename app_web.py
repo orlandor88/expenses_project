@@ -33,12 +33,28 @@ def get_products():
     conn.close()
     return products
 
+def get_product_by_name(name):
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM products WHERE UPPER(name) = UPPER(?)", (name,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
 def add_product(name, category_id):
+    """Ensure a product exists with given name and category_id. Return product id."""
+    existing_id = get_product_by_name(name)
+    if existing_id:
+        return existing_id
+
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO products (name, category_id) VALUES (?, ?)", (name, category_id))
     conn.commit()
+    new_id = cursor.lastrowid
     conn.close()
+    return new_id
 
 # --- Funcții magazine ---
 def get_stores():
@@ -181,7 +197,30 @@ def record_expense():
 
 @app.route('/add_expense', methods=['POST'])
 def add_expense_route():
-    product_id = int(request.form['product_id'])
+    # Allow either selecting an existing product (product_id) or providing a new product_name + category_id
+    prod_id_raw = request.form.get('product_id')
+    product_id = None
+    if prod_id_raw:
+        try:
+            product_id = int(prod_id_raw)
+        except ValueError:
+            product_id = None
+
+    if not product_id:
+        # create/find product by name
+        product_name = request.form.get('product_name', '').strip()
+        category_id = request.form.get('category_id')
+        if not product_name:
+            # nothing provided
+            return redirect('/record_expense')
+        if category_id:
+            try:
+                category_id = int(category_id)
+            except ValueError:
+                category_id = None
+        # fallback category_id to None is acceptable; add_product expects an int or None
+        product_id = add_product(product_name, category_id)
+
     store_id = int(request.form['store_id'])
     price = float(request.form['price'])
     quantity = float(request.form['quantity'])

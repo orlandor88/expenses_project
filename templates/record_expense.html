@@ -18,30 +18,29 @@
         <h1>Înregistrare cheltuială</h1>
 
         <section class="section">
-            <h2>Adaugă produs nou</h2>
-            <form method="POST" action="/add_product">
-                <input type="text" name="name" placeholder="Nume produs" required>
-                <select name="category_id" required>
-                    <option value="" disabled selected>Alege categoria</option>
-                    {% for cat in categories %}
-                        <option value="{{ cat[0] }}">{{ cat[1] }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit">Adaugă produs</button>
-            </form>
-        </section>
-
-        <section class="section">
             <h2>Adaugă cheltuială</h2>
             <form method="POST" action="/add_expense">
-                <select name="product_id" required>
-                    <option value="" disabled selected>Alege produsul</option>
+                <label for="product_id">Alege produs existent (sau lasă gol pentru un produs nou)</label>
+                <select name="product_id" id="product_id">
+                    <option value="" selected>Alege produsul</option>
                     {% for p in products %}
                         <option value="{{ p[0] }}">{{ p[1] }}{% if p[2] %} — {{ p[2] }}{% endif %}</option>
                     {% endfor %}
                 </select>
 
-                <select name="store_id" required>
+                <p>SAU</p>
+                <input type="text" name="product_name" placeholder="Nume produs nou (ex: 'Ciocolata')">
+
+                <label for="category_id">Categoria (pentru produs nou)</label>
+                <select name="category_id" id="category_id">
+                    <option value="" selected>Alege categoria</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat[0] }}">{{ cat[1] }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="store_id">Magazin</label>
+                <select name="store_id" id="store_id" required>
                     <option value="" disabled selected>Alege magazinul</option>
                     {% for s in stores %}
                         <option value="{{ s[0] }}">{{ s[1] }}</option>
