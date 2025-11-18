@@ -22,7 +22,13 @@ def get_categories():
 def get_products():
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name FROM products ORDER BY name")
+    # Return product id, name and category name (if available)
+    cursor.execute("""
+        SELECT p.id, p.name, c.categorie
+        FROM products p
+        LEFT JOIN categorii c ON p.category_id = c.id
+        ORDER BY p.name
+    """)
     products = cursor.fetchall()
     conn.close()
     return products

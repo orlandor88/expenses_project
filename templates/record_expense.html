@@ -37,7 +37,7 @@
                 <select name="product_id" required>
                     <option value="" disabled selected>Alege produsul</option>
                     {% for p in products %}
-                        <option value="{{ p[0] }}">{{ p[1] }}</option>
+                        <option value="{{ p[0] }}">{{ p[1] }}{% if p[2] %} — {{ p[2] }}{% endif %}</option>
                     {% endfor %}
                 </select>
 
