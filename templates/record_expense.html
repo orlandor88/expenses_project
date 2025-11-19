@@ -102,6 +102,7 @@
             cursor: pointer;
         }
         .suggestions li:hover { background:#f0f0f0 }
+    .suggestions li.highlight { background:#e0eaff }
         /* position suggestion box near the product_box */
         #product_box { width: 320px }
     </style>
@@ -150,16 +151,65 @@
             suggestionsEl.style.display='block';
         }
 
+        let selectedIndex = -1;
+
+        function updateHighlight(){
+            const items = suggestionsEl.querySelectorAll('li');
+            items.forEach((li, idx)=>{
+                if(idx === selectedIndex) li.classList.add('highlight'); else li.classList.remove('highlight');
+            });
+            // ensure visible
+            const current = items[selectedIndex];
+            if(current){
+                const rect = current.getBoundingClientRect();
+                const parentRect = suggestionsEl.getBoundingClientRect();
+                if(rect.top < parentRect.top) current.scrollIntoView(true);
+                else if(rect.bottom > parentRect.bottom) current.scrollIntoView(false);
+            }
+        }
+
+        function selectSuggestionByIndex(idx){
+            const items = suggestionsEl.querySelectorAll('li');
+            if(idx < 0 || idx >= items.length) return;
+            const li = items[idx];
+            li.click();
+        }
+
         const debouncedFetch = debounce((e)=>{
             const q = e.target.value.trim();
             productIdHidden.value='';
+            selectedIndex = -1;
             fetchSuggestions(q);
         }, 250);
 
         productBox.addEventListener('input', debouncedFetch);
         productBox.addEventListener('focus', (e)=>{ const q=e.target.value.trim(); if(q) fetchSuggestions(q); });
+
+        productBox.addEventListener('keydown', function(e){
+            const items = suggestionsEl.querySelectorAll('li');
+            if(e.key === 'ArrowDown'){
+                if(items.length===0) return;
+                selectedIndex = (selectedIndex + 1) % items.length;
+                updateHighlight();
+                e.preventDefault();
+            } else if(e.key === 'ArrowUp'){
+                if(items.length===0) return;
+                selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+                updateHighlight();
+                e.preventDefault();
+            } else if(e.key === 'Enter'){
+                if(selectedIndex >= 0){
+                    selectSuggestionByIndex(selectedIndex);
+                    e.preventDefault();
+                }
+            } else if(e.key === 'Escape'){
+                hideSuggestions();
+                selectedIndex = -1;
+            }
+        });
+
         // Clicking outside hides suggestions
-        document.addEventListener('click', function(e){ if(!suggestionsEl.contains(e.target) && e.target!==productBox){ hideSuggestions(); } });
+        document.addEventListener('click', function(e){ if(!suggestionsEl.contains(e.target) && e.target!==productBox){ hideSuggestions(); selectedIndex = -1; } });
     </script>
 </body>
 </html>
