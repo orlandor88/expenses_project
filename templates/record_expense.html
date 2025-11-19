@@ -143,6 +143,40 @@
             else alert('Eroare finalizare bon');
         });
 
+        // --- undo toast ---
+        function showUndoToast(deleted){
+            const container = document.createElement('div'); container.className='undo-toast';
+            const txt = document.createElement('div'); txt.textContent = 'Linie ștearsă';
+            const undoBtn = document.createElement('button'); undoBtn.className='small-btn undo'; undoBtn.textContent='Undo';
+            container.appendChild(txt); container.appendChild(undoBtn);
+            document.body.appendChild(container);
+            const timer = setTimeout(()=>{ container.remove() }, 8000);
+            undoBtn.addEventListener('click', async ()=>{
+                clearTimeout(timer);
+                // re-add line using add_line_item (deleted contains price/quantity/discount/product_id)
+                const form = new URLSearchParams();
+                if(deleted.product_id) form.append('product_id', deleted.product_id);
+                else form.append('product_name', '');
+                form.append('category_id', '');
+                form.append('price', deleted.price || 0);
+                form.append('quantity', deleted.quantity || 1);
+                form.append('discount', deleted.discount || 0);
+                form.append('date', deleted.date || document.getElementById('header_date').value);
+                form.append('receipt_id', deleted.receipt_id || current_receipt_id);
+                try{
+                    const res = await fetch('/add_line_item', { method:'POST', body: form });
+                    const data = await res.json();
+                    if(data.success){
+                        // append again to UI (simple approach: reload page or append minimal)
+                        location.reload();
+                    } else {
+                        alert('Undo failed: ' + (data.error||''))
+                    }
+                }catch(e){ alert('Undo failed') }
+                container.remove();
+            });
+        }
+
         // --- product suggestions for line items ---
         const productBoxLine = document.getElementById('product_box_line');
         const suggestionsElLine = document.getElementById('product_suggestions_line');
@@ -232,10 +266,71 @@
             if(data.success){
                 const ul = document.getElementById('line_items_list');
                 const li = document.createElement('li');
-                // compute total after discount
+                li.className = 'line-item';
+                li.dataset.expenseId = data.expense_id;
+                const meta = document.createElement('div'); meta.className = 'meta';
                 const total = (parseFloat(data.price) * parseFloat(data.quantity) - parseFloat(data.discount || 0)).toFixed(2);
-                li.textContent = `${data.product_name} — ${data.quantity} x ${data.price} lei  (discount ${parseFloat(data.discount||0).toFixed(2)} lei) => total ${total} lei`;
+                meta.innerHTML = `<strong>${data.product_name}</strong> <span class="meta">— ${data.quantity} x ${data.price} lei</span>`;
+                const right = document.createElement('div');
+                right.innerHTML = `<span class="meta">Discount: ${parseFloat(data.discount||0).toFixed(2)} lei</span> <span class="meta" style="margin-left:8px">Total: ${total} lei</span>`;
+                const actions = document.createElement('div'); actions.className='line-actions';
+                const editBtn = document.createElement('button'); editBtn.className='small-btn edit'; editBtn.textContent='Edit';
+                const delBtn = document.createElement('button'); delBtn.className='small-btn delete'; delBtn.textContent='Delete';
+                actions.appendChild(editBtn); actions.appendChild(delBtn);
+                li.appendChild(meta); li.appendChild(right); li.appendChild(actions);
                 ul.appendChild(li);
+
+                // wire delete
+                delBtn.addEventListener('click', async ()=>{
+                    if(!confirm('Ștergi această linie?')) return;
+                    const formD = new URLSearchParams(); formD.append('expense_id', data.expense_id);
+                    const resD = await fetch('/delete_expense', { method:'POST', body: formD });
+                    const delData = await resD.json();
+                    if(delData.success){
+                        // offer undo
+                        const deleted = delData.deleted;
+                        li.remove();
+                        showUndoToast(deleted);
+                    } else {
+                        alert('Eroare la ștergere: ' + (delData.error||''))
+                    }
+                });
+
+                // wire edit (inline)
+                editBtn.addEventListener('click', ()=>{
+                    // replace right area with inputs
+                    const priceInput = document.createElement('input'); priceInput.type='number'; priceInput.step='0.01'; priceInput.value=data.price; priceInput.className='editable-input';
+                    const qtyInput = document.createElement('input'); qtyInput.type='number'; qtyInput.step='0.01'; qtyInput.value=data.quantity; qtyInput.className='editable-input';
+                    const discInput = document.createElement('input'); discInput.type='number'; discInput.step='0.01'; discInput.value=data.discount||0; discInput.className='editable-input';
+                    const saveBtn = document.createElement('button'); saveBtn.className='small-btn edit'; saveBtn.textContent='Save';
+                    const cancelBtn = document.createElement('button'); cancelBtn.className='small-btn undo'; cancelBtn.textContent='Cancel';
+                    right.innerHTML=''; right.appendChild(priceInput); right.appendChild(qtyInput); right.appendChild(discInput); right.appendChild(saveBtn); right.appendChild(cancelBtn);
+
+                    saveBtn.addEventListener('click', async ()=>{
+                        const formU = new URLSearchParams();
+                        formU.append('expense_id', data.expense_id);
+                        formU.append('price', priceInput.value);
+                        formU.append('quantity', qtyInput.value);
+                        formU.append('discount', discInput.value);
+                        const resU = await fetch('/update_expense', { method:'POST', body: formU });
+                        const upd = await resU.json();
+                        if(upd.success){
+                            // update UI
+                            data.price = upd.price; data.quantity = upd.quantity; data.discount = upd.discount;
+                            const newTotal = (upd.price * upd.quantity - upd.discount).toFixed(2);
+                            meta.innerHTML = `<strong>${data.product_name}</strong> <span class="meta">— ${data.quantity} x ${data.price} lei</span>`;
+                            right.innerHTML = `<span class="meta">Discount: ${parseFloat(data.discount||0).toFixed(2)} lei</span> <span class="meta" style="margin-left:8px">Total: ${newTotal} lei</span>`;
+                        } else {
+                            alert('Eroare actualizare: ' + (upd.error||''))
+                        }
+                    });
+
+                    cancelBtn.addEventListener('click', ()=>{
+                        // restore display
+                        const totalRestore = (parseFloat(data.price) * parseFloat(data.quantity) - parseFloat(data.discount || 0)).toFixed(2);
+                        right.innerHTML = `<span class="meta">Discount: ${parseFloat(data.discount||0).toFixed(2)} lei</span> <span class="meta" style="margin-left:8px">Total: ${totalRestore} lei</span>`;
+                    });
+                });
                 // clear line inputs for next entry
                 productBoxLine.value = '';
                 productIdHiddenLine.value = '';

@@ -414,6 +414,85 @@ def delete_receipt_route():
     delete_receipt(rid)
     return jsonify({'success': True})
 
+
+@app.route('/delete_expense', methods=['POST'])
+def delete_expense_route():
+    eid = request.form.get('expense_id')
+    if not eid:
+        return jsonify({'success': False, 'error': 'expense_id_required'}), 400
+    try:
+        eid = int(eid)
+    except Exception:
+        return jsonify({'success': False, 'error': 'invalid_expense_id'}), 400
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    # fetch row for possible client-side undo
+    cursor.execute('SELECT product_id, store_id, price, quantity, date, receipt_id, IFNULL(discount,0) FROM expenses WHERE id = ?', (eid,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({'success': False, 'error': 'not_found'}), 404
+    cursor.execute('DELETE FROM expenses WHERE id = ?', (eid,))
+    conn.commit()
+    conn.close()
+    # return deleted row details for undo on client
+    return jsonify({'success': True, 'deleted': {'product_id': row[0], 'store_id': row[1], 'price': row[2], 'quantity': row[3], 'date': row[4], 'receipt_id': row[5], 'discount': row[6]}})
+
+
+@app.route('/update_expense', methods=['POST'])
+def update_expense_route():
+    eid = request.form.get('expense_id')
+    if not eid:
+        return jsonify({'success': False, 'error': 'expense_id_required'}), 400
+    try:
+        eid = int(eid)
+    except Exception:
+        return jsonify({'success': False, 'error': 'invalid_expense_id'}), 400
+    # allowed fields: price, quantity, discount
+    price = request.form.get('price')
+    quantity = request.form.get('quantity')
+    discount = request.form.get('discount')
+    updates = []
+    params = []
+    if price is not None:
+        try:
+            price_val = float(price)
+        except Exception:
+            return jsonify({'success': False, 'error': 'invalid_price'}), 400
+        updates.append('price = ?')
+        params.append(price_val)
+    if quantity is not None:
+        try:
+            qty_val = float(quantity)
+        except Exception:
+            return jsonify({'success': False, 'error': 'invalid_quantity'}), 400
+        updates.append('quantity = ?')
+        params.append(qty_val)
+    if discount is not None:
+        try:
+            disc_val = float(discount)
+        except Exception:
+            return jsonify({'success': False, 'error': 'invalid_discount'}), 400
+        updates.append('discount = ?')
+        params.append(disc_val)
+    if not updates:
+        return jsonify({'success': False, 'error': 'no_fields'}), 400
+    params.append(eid)
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    sql = f"UPDATE expenses SET {', '.join(updates)} WHERE id = ?"
+    cursor.execute(sql, params)
+    conn.commit()
+    # fetch updated row to return new totals
+    cursor.execute('SELECT price, quantity, IFNULL(discount,0) FROM expenses WHERE id = ?', (eid,))
+    r = cursor.fetchone()
+    conn.close()
+    if not r:
+        return jsonify({'success': False, 'error': 'not_found_after_update'}), 500
+    price, quantity, discount = r
+    total = price * quantity - (discount or 0.0)
+    return jsonify({'success': True, 'price': price, 'quantity': quantity, 'discount': discount, 'total': total})
+
 @app.route('/add_expense', methods=['POST'])
 def add_expense_route():
     # Allow either selecting an existing product (product_id) or providing a new product_name + category_id
