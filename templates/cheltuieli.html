@@ -26,7 +26,10 @@
                         <th>Magazin</th>
                         <th>Preț</th>
                         <th>Cantitate</th>
+                        <th>Discount (lei)</th>
+                        <th>Total (lei)</th>
                         <th>Data</th>
+                        <th>Nr. bon</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -38,9 +41,12 @@
                             <td>{{ e[3] }}</td>
                             <td>{{ e[4] }}</td>
                             <td>{{ e[5] }}</td>
+                            <td>{{ e[6] }}</td>
+                            <td>{{ e[7] }}</td>
+                            <td>{{ e[8] }}</td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="6">Nicio cheltuială înregistrată</td></tr>
+                        <tr><td colspan="9">Nicio cheltuială înregistrată</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

@@ -2,34 +2,23 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <title>Înregistrare Cheltuială</title>
+    <title>Înregistrare Bon</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* minimal suggestion styles */
+        .suggestions { list-style:none; margin:0; padding:0; border:1px solid #ccc; max-height:200px; overflow-y:auto; background:white; position:absolute; width:320px; z-index:50 }
+        .suggestions li { padding:6px 8px; cursor:pointer }
+        .suggestions li:hover { background:#f0f0f0 }
+        .suggestions li.highlight { background:#e0eaff }
+        #product_box_line { width:320px }
+        .hidden { display:none }
+        .line-items { margin-top:12px }
+        .line-items li { padding:6px 0 }
+        .receipt-header { border:1px solid #ddd; padding:10px; margin-bottom:8px }
+    </style>
     <script>
-        // Toggle new-product inputs depending on whether an existing product is selected
-        function toggleNewProductFields() {
-            const prodSelect = document.getElementById('product_id');
-            const newFields = document.getElementById('new-product-fields');
-            const prodName = document.getElementById('product_name');
-            const catSelect = document.getElementById('category_id');
-            if (!prodSelect || !newFields) return;
-            if (prodSelect.value && prodSelect.value !== '') {
-                newFields.style.display = 'none';
-                // Clear new product inputs to avoid accidental submission
-                if (prodName) prodName.value = '';
-                if (catSelect) catSelect.selectedIndex = 0;
-            } else {
-                newFields.style.display = 'block';
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const prodSelect = document.getElementById('product_id');
-            if (prodSelect) {
-                prodSelect.addEventListener('change', toggleNewProductFields);
-            }
-            // Initialize on load
-            toggleNewProductFields();
-        });
+        // simple debounce
+        function debounce(fn, wait){ let t; return function(...a){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,a), wait) } }
     </script>
 </head>
 <body>
@@ -37,179 +26,218 @@
         <a href="/">Acasă</a>
         <a href="/cheltuieli">Cheltuieli</a>
         <a href="/reports">Rapoarte</a>
-        <a href="/reports/monthly">Rapoarte lunare</a>
-        <a href="/reports/products">Rapoarte pe produse</a>
-        <a href="/reports/stores">Rapoarte pe magazine</a>
     </div>
     <div class="container">
-        <h1>Înregistrare cheltuială</h1>
+        <h1>Introducere bon (receipt)</h1>
 
-        <section class="section">
-            <h2>Adaugă cheltuială</h2>
-            <form method="POST" action="/add_expense">
-                <label for="product_box">Produs (selectează sau tastează unul nou)</label>
-                <input type="hidden" name="product_id" id="product_id_hidden" value="">
-                <input type="text" id="product_box" name="product_box" autocomplete="off" placeholder="Tastează pentru sugestii (ex: 'lapte')">
-                <ul id="product_suggestions" class="suggestions" style="display:none;"></ul>
+        <div class="receipt-header">
+            <h2>Informații bon</h2>
+            <label>Magazin</label>
+            <select id="header_store_id">
+                <option value="" selected disabled>Alege magazinul</option>
+                {% for s in stores %}
+                    <option value="{{ s[0] }}">{{ s[1] }}</option>
+                {% endfor %}
+            </select>
+            <p>Dacă magazinul nu este în listă, <a href="/stores/new">adaugă magazin</a>.</p>
+            <label>Număr bon</label>
+            <input type="text" id="header_nr_bon" placeholder="Număr bon (opțional)">
+            <label>Data</label>
+            <input type="date" id="header_date">
+            <button id="start_receipt">Pornește bon</button>
+        </div>
 
-                <div id="new-product-fields">
+        <div id="receipt_area" class="hidden">
+            <h2>Adaugă produse (bon curent <span id="current_receipt_id"></span>)</h2>
+            <div>
+                <label>Produs</label>
+                <input type="hidden" id="product_id_hidden_line" value="">
+                <input type="text" id="product_box_line" autocomplete="off" placeholder="Tastează pentru sugestii">
+                <ul id="product_suggestions_line" class="suggestions" style="display:none"></ul>
+                <div id="new-product-fields-line">
                     <p>Categoria (pentru produs nou)</p>
-                    <select name="category_id" id="category_id">
+                    <select id="category_id_line">
                         <option value="" selected>Alege categoria</option>
                         {% for cat in categories %}
                             <option value="{{ cat[0] }}">{{ cat[1] }}</option>
                         {% endfor %}
                     </select>
                 </div>
+            </div>
 
-                <label for="store_id">Magazin</label>
-                <select name="store_id" id="store_id" required>
-                    <option value="" disabled selected>Alege magazinul</option>
-                    {% for s in stores %}
-                        <option value="{{ s[0] }}">{{ s[1] }}</option>
-                    {% endfor %}
-                </select>
+            <div>
+                <label>Preț</label>
+                <input type="number" step="0.01" id="line_price" value="0.00">
+                <label>Cantitate</label>
+                <input type="number" step="0.01" id="line_quantity" value="1">
+                <label>Discount (lei)</label>
+                <input type="number" step="0.01" id="line_discount" value="0.00">
+                <button id="add_line">Adaugă linie</button>
+            </div>
 
-                <p>
-                    Dacă magazinul nu este în listă, <a href="/stores/new">adaugă magazin nou</a>.
-                </p>
+            <h3>Articole adăugate</h3>
+            <ul id="line_items_list" class="line-items"></ul>
 
-                <input type="number" step="0.01" name="price" placeholder="Preț" required>
-                <input type="number" step="0.01" name="quantity" placeholder="Cantitate" required>
-                <input type="date" name="date" required>
-                <button type="submit">Adaugă cheltuială</button>
-            </form>
-        </section>
+            <div style="margin-top:10px">
+                <button id="complete_receipt">Finalizează bon</button>
+                <button id="cancel_receipt">Anulează</button>
+            </div>
+        </div>
 
         <a href="/">⬅️ Înapoi</a>
     </div>
-    <style>
-        /* minimal suggestion styles */
-        .suggestions {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            border: 1px solid #ccc;
-            max-height: 200px;
-            overflow-y: auto;
-            background: white;
-            position: absolute;
-            width: 320px;
-            z-index: 50;
-        }
-        .suggestions li {
-            padding: 6px 8px;
-            cursor: pointer;
-        }
-        .suggestions li:hover { background:#f0f0f0 }
-    .suggestions li.highlight { background:#e0eaff }
-        /* position suggestion box near the product_box */
-        #product_box { width: 320px }
-    </style>
+
     <script>
-        // Debounced fetch helper
-        function debounce(fn, wait){
-            let t;
-            return function(...args){
-                clearTimeout(t);
-                t = setTimeout(()=>fn.apply(this,args), wait);
+        // --- receipt lifecycle ---
+        let current_receipt_id = null;
+
+        document.getElementById('start_receipt').addEventListener('click', async function(){
+            const store_id = document.getElementById('header_store_id').value;
+            const nr_bon = document.getElementById('header_nr_bon').value.trim();
+            const date = document.getElementById('header_date').value;
+            if(!store_id){ alert('Selectează magazinul'); return }
+            const form = new URLSearchParams();
+            form.append('store_id', store_id);
+            form.append('nr_bon', nr_bon);
+            form.append('date', date);
+            const res = await fetch('/create_receipt', { method:'POST', body: form });
+            const data = await res.json();
+            if(data.success){
+                current_receipt_id = data.receipt_id;
+                document.getElementById('current_receipt_id').textContent = current_receipt_id;
+                document.getElementById('receipt_area').classList.remove('hidden');
+                // disable header inputs while editing
+                document.getElementById('header_store_id').disabled = true;
+                document.getElementById('header_nr_bon').disabled = true;
+                document.getElementById('header_date').disabled = true;
+            } else {
+                alert('Eroare la crearea bonului')
             }
-        }
+        });
 
-        const productBox = document.getElementById('product_box');
-        const suggestionsEl = document.getElementById('product_suggestions');
-        const productIdHidden = document.getElementById('product_id_hidden');
-        const newProductFields = document.getElementById('new-product-fields');
+        document.getElementById('cancel_receipt').addEventListener('click', function(){
+            // simple reset of UI (we do not delete the DB receipt)
+            current_receipt_id = null;
+            document.getElementById('receipt_area').classList.add('hidden');
+            document.getElementById('header_store_id').disabled = false;
+            document.getElementById('header_nr_bon').disabled = false;
+            document.getElementById('header_date').disabled = false;
+            document.getElementById('line_items_list').innerHTML = '';
+            document.getElementById('current_receipt_id').textContent = '';
+        });
 
-        function hideSuggestions(){ suggestionsEl.style.display='none'; suggestionsEl.innerHTML=''; }
+        document.getElementById('complete_receipt').addEventListener('click', async function(){
+            if(!current_receipt_id){ alert('Nu există un bon activ'); return }
+            const form = new URLSearchParams();
+            form.append('receipt_id', current_receipt_id);
+            const res = await fetch('/complete_receipt', { method:'POST', body: form });
+            const data = await res.json();
+            if(data.success && data.redirect){ window.location.href = data.redirect }
+            else alert('Eroare finalizare bon');
+        });
 
-        async function fetchSuggestions(q){
-            if(!q){ hideSuggestions(); productIdHidden.value=''; newProductFields.style.display='block'; return }
+        // --- product suggestions for line items ---
+        const productBoxLine = document.getElementById('product_box_line');
+        const suggestionsElLine = document.getElementById('product_suggestions_line');
+        const productIdHiddenLine = document.getElementById('product_id_hidden_line');
+        const newProductFieldsLine = document.getElementById('new-product-fields-line');
+        let selectedIndexLine = -1;
+
+        function hideSuggestionsLine(){ suggestionsElLine.style.display='none'; suggestionsElLine.innerHTML=''; }
+
+        async function fetchSuggestionsLine(q){
+            if(!q){ hideSuggestionsLine(); productIdHiddenLine.value=''; newProductFieldsLine.style.display='block'; return }
             try{
                 const res = await fetch(`/products/search?q=${encodeURIComponent(q)}`);
                 const data = await res.json();
-                renderSuggestions(data);
+                renderSuggestionsLine(data);
             }catch(e){ console.error(e); }
         }
 
-        function renderSuggestions(items){
-            suggestionsEl.innerHTML='';
-            if(!items || items.length===0){ hideSuggestions(); newProductFields.style.display='block'; return }
+        function renderSuggestionsLine(items){
+            suggestionsElLine.innerHTML='';
+            if(!items || items.length===0){ hideSuggestionsLine(); newProductFieldsLine.style.display='block'; return }
             items.forEach(it=>{
                 const li = document.createElement('li');
                 li.textContent = it.name + (it.category ? ' — ' + it.category : '');
                 li.dataset.id = it.id;
                 li.dataset.name = it.name;
                 li.addEventListener('click', ()=>{
-                    productBox.value = li.dataset.name + (it.category ? ' — ' + it.category : '');
-                    productIdHidden.value = li.dataset.id;
-                    hideSuggestions();
-                    newProductFields.style.display='none';
+                    productBoxLine.value = li.dataset.name + (it.category ? ' — ' + it.category : '');
+                    productIdHiddenLine.value = li.dataset.id;
+                    hideSuggestionsLine();
+                    newProductFieldsLine.style.display='none';
                 });
-                suggestionsEl.appendChild(li);
+                suggestionsElLine.appendChild(li);
             });
-            suggestionsEl.style.display='block';
+            suggestionsElLine.style.display='block';
         }
 
-        let selectedIndex = -1;
-
-        function updateHighlight(){
-            const items = suggestionsEl.querySelectorAll('li');
-            items.forEach((li, idx)=>{
-                if(idx === selectedIndex) li.classList.add('highlight'); else li.classList.remove('highlight');
-            });
-            // ensure visible
-            const current = items[selectedIndex];
-            if(current){
-                const rect = current.getBoundingClientRect();
-                const parentRect = suggestionsEl.getBoundingClientRect();
-                if(rect.top < parentRect.top) current.scrollIntoView(true);
-                else if(rect.bottom > parentRect.bottom) current.scrollIntoView(false);
-            }
-        }
-
-        function selectSuggestionByIndex(idx){
-            const items = suggestionsEl.querySelectorAll('li');
-            if(idx < 0 || idx >= items.length) return;
-            const li = items[idx];
-            li.click();
-        }
-
-        const debouncedFetch = debounce((e)=>{
+        productBoxLine.addEventListener('input', debounce((e)=>{
             const q = e.target.value.trim();
-            productIdHidden.value='';
-            selectedIndex = -1;
-            fetchSuggestions(q);
-        }, 250);
+            productIdHiddenLine.value = '';
+            selectedIndexLine = -1;
+            fetchSuggestionsLine(q);
+        }, 200));
 
-        productBox.addEventListener('input', debouncedFetch);
-        productBox.addEventListener('focus', (e)=>{ const q=e.target.value.trim(); if(q) fetchSuggestions(q); });
-
-        productBox.addEventListener('keydown', function(e){
-            const items = suggestionsEl.querySelectorAll('li');
+        productBoxLine.addEventListener('keydown', function(e){
+            const items = suggestionsElLine.querySelectorAll('li');
             if(e.key === 'ArrowDown'){
                 if(items.length===0) return;
-                selectedIndex = (selectedIndex + 1) % items.length;
-                updateHighlight();
-                e.preventDefault();
+                selectedIndexLine = (selectedIndexLine + 1) % items.length;
+                updateHighlightLine(); e.preventDefault();
             } else if(e.key === 'ArrowUp'){
                 if(items.length===0) return;
-                selectedIndex = (selectedIndex - 1 + items.length) % items.length;
-                updateHighlight();
-                e.preventDefault();
+                selectedIndexLine = (selectedIndexLine - 1 + items.length) % items.length;
+                updateHighlightLine(); e.preventDefault();
             } else if(e.key === 'Enter'){
-                if(selectedIndex >= 0){
-                    selectSuggestionByIndex(selectedIndex);
-                    e.preventDefault();
-                }
+                if(selectedIndexLine >= 0){ selectSuggestionByIndexLine(selectedIndexLine); e.preventDefault(); }
             } else if(e.key === 'Escape'){
-                hideSuggestions();
-                selectedIndex = -1;
+                hideSuggestionsLine(); selectedIndexLine = -1;
             }
         });
 
-        // Clicking outside hides suggestions
-        document.addEventListener('click', function(e){ if(!suggestionsEl.contains(e.target) && e.target!==productBox){ hideSuggestions(); selectedIndex = -1; } });
+        function updateHighlightLine(){ const items = suggestionsElLine.querySelectorAll('li'); items.forEach((li,idx)=>{ if(idx===selectedIndexLine) li.classList.add('highlight'); else li.classList.remove('highlight') }); const cur = items[selectedIndexLine]; if(cur){ const rect = cur.getBoundingClientRect(); const pr = suggestionsElLine.getBoundingClientRect(); if(rect.top < pr.top) cur.scrollIntoView(true); else if(rect.bottom > pr.bottom) cur.scrollIntoView(false); } }
+        function selectSuggestionByIndexLine(idx){ const items = suggestionsElLine.querySelectorAll('li'); if(idx<0||idx>=items.length) return; items[idx].click(); }
+
+        document.addEventListener('click', function(e){ if(!suggestionsElLine.contains(e.target) && e.target!==productBoxLine){ hideSuggestionsLine(); selectedIndexLine = -1; } });
+
+        // --- add a line to receipt ---
+            document.getElementById('add_line').addEventListener('click', async function(){
+            if(!current_receipt_id){ alert('Pornește mai întâi un bon'); return }
+            const form = new URLSearchParams();
+            form.append('receipt_id', current_receipt_id);
+            const prodId = productIdHiddenLine.value;
+            if(prodId) form.append('product_id', prodId);
+            else form.append('product_name', document.getElementById('product_box_line').value.trim());
+            const cat = document.getElementById('category_id_line').value;
+            if(cat) form.append('category_id', cat);
+            form.append('price', document.getElementById('line_price').value);
+            form.append('quantity', document.getElementById('line_quantity').value);
+            form.append('discount', document.getElementById('line_discount').value);
+            form.append('date', document.getElementById('header_date').value);
+
+            const res = await fetch('/add_line_item', { method:'POST', body: form });
+            const data = await res.json();
+            if(data.success){
+                const ul = document.getElementById('line_items_list');
+                const li = document.createElement('li');
+                // compute total after discount
+                const total = (parseFloat(data.price) * parseFloat(data.quantity) - parseFloat(data.discount || 0)).toFixed(2);
+                li.textContent = `${data.product_name} — ${data.quantity} x ${data.price} lei  (discount ${parseFloat(data.discount||0).toFixed(2)} lei) => total ${total} lei`;
+                ul.appendChild(li);
+                // clear line inputs for next entry
+                productBoxLine.value = '';
+                productIdHiddenLine.value = '';
+                document.getElementById('line_price').value = '0.00';
+                document.getElementById('line_quantity').value = '1';
+                document.getElementById('line_discount').value = '0.00';
+                newProductFieldsLine.style.display = 'block';
+                hideSuggestionsLine();
+            } else {
+                alert('Eroare adăugare linie: ' + (data.error||''))
+            }
+        });
     </script>
 </body>
 </html>

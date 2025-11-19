@@ -56,6 +56,60 @@ def add_product(name, category_id):
     conn.close()
     return new_id
 
+
+def ensure_receipts_schema():
+    """Ensure receipts table exists and expenses has receipt_id column."""
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    # Create receipts table if missing
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS receipts (
+            id INTEGER PRIMARY KEY,
+            store_id INTEGER,
+            nr_bon TEXT,
+            date TEXT
+        )
+    """)
+    # Ensure expenses has receipt_id column
+    cursor.execute("PRAGMA table_info(expenses)")
+    cols = [r[1] for r in cursor.fetchall()]
+    if 'receipt_id' not in cols:
+        try:
+            cursor.execute("ALTER TABLE expenses ADD COLUMN receipt_id INTEGER")
+        except Exception:
+            # If alter fails, skip (older SQLite versions should support ADD COLUMN)
+            pass
+    conn.commit()
+    conn.close()
+
+
+def ensure_expense_discount_column():
+    """Ensure the expenses table has a discount column (REAL)."""
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(expenses)")
+    cols = [r[1] for r in cursor.fetchall()]
+    if 'discount' not in cols:
+        try:
+            cursor.execute("ALTER TABLE expenses ADD COLUMN discount REAL DEFAULT 0.0")
+        except Exception:
+            # best-effort; if it fails we'll still proceed
+            pass
+    conn.commit()
+    conn.close()
+
+
+def create_receipt(store_id, nr_bon, date_value):
+    ensure_receipts_schema()
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO receipts (store_id, nr_bon, date) VALUES (?, ?, ?)",
+                   (store_id, nr_bon, date_value))
+    conn.commit()
+    rid = cursor.lastrowid
+    conn.close()
+    return rid
+
 # --- Funcții magazine ---
 def get_stores():
     conn = sqlite3.connect('expenses.db')
@@ -100,24 +154,37 @@ def update_store_name(store_id, new_name):
     conn.close()
 
 # --- Funcții cheltuieli ---
-def add_expense(product_id, store_id, price, quantity, date_value):
+def add_expense(product_id, store_id, price, quantity, date_value, receipt_id=None, discount=0.0):
+    # ensure discount column exists (best-effort)
+    ensure_expense_discount_column()
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO expenses (product_id, store_id, price, quantity, date) VALUES (?, ?, ?, ?, ?)",
-        (product_id, store_id, price, quantity, date_value)
-    )
+    if receipt_id is not None:
+        cursor.execute(
+            "INSERT INTO expenses (product_id, store_id, price, quantity, date, receipt_id, discount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (product_id, store_id, price, quantity, date_value, receipt_id, discount)
+        )
+    else:
+        cursor.execute(
+            "INSERT INTO expenses (product_id, store_id, price, quantity, date, discount) VALUES (?, ?, ?, ?, ?, ?)",
+            (product_id, store_id, price, quantity, date_value, discount)
+        )
     conn.commit()
+    new_id = cursor.lastrowid
     conn.close()
+    return new_id
 
 def get_expenses():
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT e.id, p.name, s.name, e.price, e.quantity, e.date
+        SELECT e.id, p.name, s.name, e.price, e.quantity, IFNULL(e.discount, 0) as discount,
+               (e.price * e.quantity - IFNULL(e.discount,0)) AS total,
+               e.date, r.nr_bon, r.id
         FROM expenses e
         LEFT JOIN products p ON e.product_id = p.id
         LEFT JOIN stores s ON e.store_id = s.id
+        LEFT JOIN receipts r ON e.receipt_id = r.id
         ORDER BY e.date DESC
     """)
     expenses = cursor.fetchall()
@@ -225,6 +292,105 @@ def products_search():
         results.append({'id': r[0], 'name': r[1], 'category': r[2]})
     return jsonify(results)
 
+
+@app.route('/create_receipt', methods=['POST'])
+def create_receipt_route():
+    # create a receipt header and return its id
+    store_id = request.form.get('store_id')
+    nr_bon = request.form.get('nr_bon', '').strip()
+    date_value = request.form.get('date')
+    if not store_id:
+        return jsonify({'success': False, 'error': 'store_id_required'}), 400
+    try:
+        store_id = int(store_id)
+    except ValueError:
+        return jsonify({'success': False, 'error': 'invalid_store_id'}), 400
+    rid = create_receipt(store_id, nr_bon, date_value)
+    return jsonify({'success': True, 'receipt_id': rid})
+
+
+@app.route('/add_line_item', methods=['POST'])
+def add_line_item_route():
+    # Add an expense line associated with a receipt (AJAX)
+    receipt_id = request.form.get('receipt_id')
+    if not receipt_id:
+        return jsonify({'success': False, 'error': 'receipt_id_required'}), 400
+    try:
+        receipt_id = int(receipt_id)
+    except ValueError:
+        return jsonify({'success': False, 'error': 'invalid_receipt_id'}), 400
+
+    # product may be provided as id or as new product_name + category_id
+    prod_id_raw = request.form.get('product_id')
+    product_id = None
+    if prod_id_raw:
+        try:
+            product_id = int(prod_id_raw)
+        except ValueError:
+            product_id = None
+
+    if not product_id:
+        product_name = request.form.get('product_name', '').strip()
+        category_id = request.form.get('category_id')
+        if not product_name:
+            return jsonify({'success': False, 'error': 'product_name_required'}), 400
+        try:
+            category_id = int(category_id) if category_id else None
+        except ValueError:
+            category_id = None
+        product_id = add_product(product_name, category_id)
+
+    price = request.form.get('price')
+    qty = request.form.get('quantity')
+    discount = request.form.get('discount')
+    date_value = request.form.get('date')
+    # retrieve store_id from receipts table for this receipt (to populate expense.store_id)
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT store_id, date FROM receipts WHERE id = ?", (receipt_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'success': False, 'error': 'receipt_not_found'}), 400
+    store_id = row[0]
+    # if date not provided for line, fallback to receipt date or today's date
+    if not date_value:
+        date_value = row[1]
+
+    try:
+        price = float(price)
+    except Exception:
+        price = 0.0
+    try:
+        qty = float(qty)
+    except Exception:
+        qty = 1.0
+    try:
+        discount = float(discount) if discount not in (None, '') else 0.0
+    except Exception:
+        discount = 0.0
+
+    expense_id = add_expense(product_id, store_id, price, qty, date_value, receipt_id=receipt_id, discount=discount)
+
+    # return a small representation for UI
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT p.name FROM products p WHERE p.id = ?", (product_id,))
+    r = cursor.fetchone()
+    pname = r[0] if r else ''
+    conn.close()
+
+    return jsonify({'success': True, 'expense_id': expense_id, 'product_name': pname, 'price': price, 'quantity': qty, 'discount': discount})
+
+
+@app.route('/complete_receipt', methods=['POST'])
+def complete_receipt_route():
+    # For now, just acknowledge and redirect client to expenses list
+    receipt_id = request.form.get('receipt_id')
+    if not receipt_id:
+        return jsonify({'success': False, 'error': 'receipt_id_required'}), 400
+    return jsonify({'success': True, 'redirect': '/cheltuieli'})
+
 @app.route('/add_expense', methods=['POST'])
 def add_expense_route():
     # Allow either selecting an existing product (product_id) or providing a new product_name + category_id
@@ -255,7 +421,13 @@ def add_expense_route():
     price = float(request.form['price'])
     quantity = float(request.form['quantity'])
     date_value = request.form['date']
-    add_expense(product_id, store_id, price, quantity, date_value)
+    # optional discount field
+    discount = request.form.get('discount')
+    try:
+        discount = float(discount) if discount not in (None, '') else 0.0
+    except Exception:
+        discount = 0.0
+    add_expense(product_id, store_id, price, quantity, date_value, discount=discount)
     # After adding an expense show the expenses page
     return redirect('/cheltuieli')
 
