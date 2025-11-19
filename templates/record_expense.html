@@ -47,24 +47,18 @@
         <section class="section">
             <h2>Adaugă cheltuială</h2>
             <form method="POST" action="/add_expense">
-                <label for="product_id">Alege produs existent (sau lasă gol pentru un produs nou)</label>
-                <select name="product_id" id="product_id">
-                    <option value="" selected>Alege produsul</option>
-                    {% for p in products %}
-                        <option value="{{ p[0] }}">{{ p[1] }}{% if p[2] %} — {{ p[2] }}{% endif %}</option>
-                    {% endfor %}
-                </select>
+                <label for="product_box">Produs (selectează sau tastează unul nou)</label>
+                <input type="hidden" name="product_id" id="product_id_hidden" value="">
+                <input type="text" id="product_box" name="product_box" autocomplete="off" placeholder="Tastează pentru sugestii (ex: 'lapte')">
+                <ul id="product_suggestions" class="suggestions" style="display:none;"></ul>
 
-                <p>SAU</p>
                 <div id="new-product-fields">
-                    <input type="text" id="product_name" name="product_name" placeholder="Nume produs nou (ex: 'Ciocolata')">
-
-                    <label for="category_id">Categoria (pentru produs nou)</label>
+                    <p>Categoria (pentru produs nou)</p>
                     <select name="category_id" id="category_id">
-                    <option value="" selected>Alege categoria</option>
-                    {% for cat in categories %}
-                        <option value="{{ cat[0] }}">{{ cat[1] }}</option>
-                    {% endfor %}
+                        <option value="" selected>Alege categoria</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat[0] }}">{{ cat[1] }}</option>
+                        {% endfor %}
                     </select>
                 </div>
 
@@ -89,5 +83,83 @@
 
         <a href="/">⬅️ Înapoi</a>
     </div>
+    <style>
+        /* minimal suggestion styles */
+        .suggestions {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            border: 1px solid #ccc;
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            position: absolute;
+            width: 320px;
+            z-index: 50;
+        }
+        .suggestions li {
+            padding: 6px 8px;
+            cursor: pointer;
+        }
+        .suggestions li:hover { background:#f0f0f0 }
+        /* position suggestion box near the product_box */
+        #product_box { width: 320px }
+    </style>
+    <script>
+        // Debounced fetch helper
+        function debounce(fn, wait){
+            let t;
+            return function(...args){
+                clearTimeout(t);
+                t = setTimeout(()=>fn.apply(this,args), wait);
+            }
+        }
+
+        const productBox = document.getElementById('product_box');
+        const suggestionsEl = document.getElementById('product_suggestions');
+        const productIdHidden = document.getElementById('product_id_hidden');
+        const newProductFields = document.getElementById('new-product-fields');
+
+        function hideSuggestions(){ suggestionsEl.style.display='none'; suggestionsEl.innerHTML=''; }
+
+        async function fetchSuggestions(q){
+            if(!q){ hideSuggestions(); productIdHidden.value=''; newProductFields.style.display='block'; return }
+            try{
+                const res = await fetch(`/products/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                renderSuggestions(data);
+            }catch(e){ console.error(e); }
+        }
+
+        function renderSuggestions(items){
+            suggestionsEl.innerHTML='';
+            if(!items || items.length===0){ hideSuggestions(); newProductFields.style.display='block'; return }
+            items.forEach(it=>{
+                const li = document.createElement('li');
+                li.textContent = it.name + (it.category ? ' — ' + it.category : '');
+                li.dataset.id = it.id;
+                li.dataset.name = it.name;
+                li.addEventListener('click', ()=>{
+                    productBox.value = li.dataset.name + (it.category ? ' — ' + it.category : '');
+                    productIdHidden.value = li.dataset.id;
+                    hideSuggestions();
+                    newProductFields.style.display='none';
+                });
+                suggestionsEl.appendChild(li);
+            });
+            suggestionsEl.style.display='block';
+        }
+
+        const debouncedFetch = debounce((e)=>{
+            const q = e.target.value.trim();
+            productIdHidden.value='';
+            fetchSuggestions(q);
+        }, 250);
+
+        productBox.addEventListener('input', debouncedFetch);
+        productBox.addEventListener('focus', (e)=>{ const q=e.target.value.trim(); if(q) fetchSuggestions(q); });
+        // Clicking outside hides suggestions
+        document.addEventListener('click', function(e){ if(!suggestionsEl.contains(e.target) && e.target!==productBox){ hideSuggestions(); } });
+    </script>
 </body>
 </html>

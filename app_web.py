@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, make_response
+from flask import Flask, render_template, request, redirect, make_response, jsonify
 import sqlite3
 import os
 import csv
@@ -194,6 +194,36 @@ def record_expense():
     stores = get_stores()
     categories = get_categories()
     return render_template('record_expense.html', products=products, stores=stores, categories=categories)
+
+
+@app.route('/products/search')
+def products_search():
+    q = request.args.get('q', '').strip()
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    if q:
+        cursor.execute("""
+            SELECT p.id, p.name, c.categorie
+            FROM products p
+            LEFT JOIN categorii c ON p.category_id = c.id
+            WHERE UPPER(p.name) LIKE UPPER(?)
+            ORDER BY p.name
+            LIMIT 10
+        """, (f"%{q}%",))
+    else:
+        cursor.execute("""
+            SELECT p.id, p.name, c.categorie
+            FROM products p
+            LEFT JOIN categorii c ON p.category_id = c.id
+            ORDER BY p.name
+            LIMIT 10
+        """)
+    rows = cursor.fetchall()
+    conn.close()
+    results = []
+    for r in rows:
+        results.append({'id': r[0], 'name': r[1], 'category': r[2]})
+    return jsonify(results)
 
 @app.route('/add_expense', methods=['POST'])
 def add_expense_route():
