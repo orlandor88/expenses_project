@@ -178,14 +178,14 @@ def get_expenses():
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT e.id, p.name, s.name, e.price, e.quantity, IFNULL(e.discount, 0) as discount,
-               (e.price * e.quantity - IFNULL(e.discount,0)) AS total,
-               e.date, r.nr_bon, r.id
-        FROM expenses e
-        LEFT JOIN products p ON e.product_id = p.id
-        LEFT JOIN stores s ON e.store_id = s.id
-        LEFT JOIN receipts r ON e.receipt_id = r.id
-        ORDER BY e.date DESC
+     SELECT e.id, p.name, s.name, e.price, e.quantity, IFNULL(e.discount, 0) as discount,
+         (e.price * e.quantity - IFNULL(e.discount,0)) AS total,
+         e.date, r.nr_bon, r.id
+     FROM expenses e
+     LEFT JOIN products p ON e.product_id = p.id
+     LEFT JOIN stores s ON e.store_id = s.id
+     LEFT JOIN receipts r ON e.receipt_id = r.id
+     ORDER BY COALESCE(r.id, 0) DESC, e.date DESC
     """)
     expenses = cursor.fetchall()
     conn.close()
@@ -231,6 +231,16 @@ def delete_store(store_id):
     # Remove expenses referencing this store first to keep DB consistent
     cursor.execute("DELETE FROM expenses WHERE store_id = ?", (store_id,))
     cursor.execute("DELETE FROM stores WHERE id = ?", (store_id,))
+    conn.commit()
+    conn.close()
+
+
+def delete_receipt(receipt_id):
+    """Delete a receipt and any related expenses."""
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM expenses WHERE receipt_id = ?", (receipt_id,))
+    cursor.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))
     conn.commit()
     conn.close()
 
@@ -390,6 +400,19 @@ def complete_receipt_route():
     if not receipt_id:
         return jsonify({'success': False, 'error': 'receipt_id_required'}), 400
     return jsonify({'success': True, 'redirect': '/cheltuieli'})
+
+
+@app.route('/delete_receipt', methods=['POST'])
+def delete_receipt_route():
+    receipt_id = request.form.get('receipt_id')
+    if not receipt_id:
+        return jsonify({'success': False, 'error': 'receipt_id_required'}), 400
+    try:
+        rid = int(receipt_id)
+    except Exception:
+        return jsonify({'success': False, 'error': 'invalid_receipt_id'}), 400
+    delete_receipt(rid)
+    return jsonify({'success': True})
 
 @app.route('/add_expense', methods=['POST'])
 def add_expense_route():

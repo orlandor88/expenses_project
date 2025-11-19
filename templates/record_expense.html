@@ -115,8 +115,15 @@
             }
         });
 
-        document.getElementById('cancel_receipt').addEventListener('click', function(){
-            // simple reset of UI (we do not delete the DB receipt)
+        document.getElementById('cancel_receipt').addEventListener('click', async function(){
+            if(current_receipt_id){
+                // ask server to delete receipt and its lines
+                const form = new URLSearchParams(); form.append('receipt_id', current_receipt_id);
+                try{
+                    await fetch('/delete_receipt', { method: 'POST', body: form });
+                }catch(e){ console.warn('Failed to delete receipt on server', e); }
+            }
+            // reset UI
             current_receipt_id = null;
             document.getElementById('receipt_area').classList.add('hidden');
             document.getElementById('header_store_id').disabled = false;
@@ -204,7 +211,10 @@
 
         // --- add a line to receipt ---
             document.getElementById('add_line').addEventListener('click', async function(){
-            if(!current_receipt_id){ alert('Pornește mai întâi un bon'); return }
+                if(!current_receipt_id){ alert('Pornește mai întâi un bon'); return }
+                const addBtn = document.getElementById('add_line');
+                if(addBtn.disabled) return; // prevent double submissions
+                addBtn.disabled = true;
             const form = new URLSearchParams();
             form.append('receipt_id', current_receipt_id);
             const prodId = productIdHiddenLine.value;
@@ -234,8 +244,10 @@
                 document.getElementById('line_discount').value = '0.00';
                 newProductFieldsLine.style.display = 'block';
                 hideSuggestionsLine();
+                addBtn.disabled = false;
             } else {
                 alert('Eroare adăugare linie: ' + (data.error||''))
+                addBtn.disabled = false;
             }
         });
     </script>
