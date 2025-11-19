@@ -3,6 +3,7 @@ import sqlite3
 import os
 import csv
 from io import StringIO
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -61,23 +62,21 @@ def ensure_receipts_schema():
     """Ensure receipts table exists and expenses has receipt_id column."""
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    # Create receipts table if missing
+    # Create receipts table if missing. New schema uses nr_bon as primary key (TEXT).
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS receipts (
-            id INTEGER PRIMARY KEY,
+            nr_bon TEXT PRIMARY KEY,
             store_id INTEGER,
-            nr_bon TEXT,
             date TEXT
         )
     """)
-    # Ensure expenses has receipt_id column
+    # Ensure expenses has receipt_nr (TEXT) column for linking to receipts.nr_bon
     cursor.execute("PRAGMA table_info(expenses)")
     cols = [r[1] for r in cursor.fetchall()]
-    if 'receipt_id' not in cols:
+    if 'receipt_nr' not in cols:
         try:
-            cursor.execute("ALTER TABLE expenses ADD COLUMN receipt_id INTEGER")
+            cursor.execute("ALTER TABLE expenses ADD COLUMN receipt_nr TEXT")
         except Exception:
-            # If alter fails, skip (older SQLite versions should support ADD COLUMN)
             pass
     conn.commit()
     conn.close()
@@ -103,12 +102,21 @@ def create_receipt(store_id, nr_bon, date_value):
     ensure_receipts_schema()
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO receipts (store_id, nr_bon, date) VALUES (?, ?, ?)",
-                   (store_id, nr_bon, date_value))
-    conn.commit()
-    rid = cursor.lastrowid
+    # ensure nr_bon non-empty; generate fallback if empty
+    if not nr_bon or str(nr_bon).strip() == '':
+        nr_bon = f"AUTO-{int(datetime.utcnow().timestamp())}"
+    try:
+        cursor.execute("INSERT INTO receipts (nr_bon, store_id, date) VALUES (?, ?, ?)",
+                       (nr_bon, store_id, date_value))
+        conn.commit()
+    except Exception:
+        # if insertion fails because nr_bon exists, append suffix
+        nr_bon = f"{nr_bon}-{int(datetime.utcnow().timestamp())}"
+        cursor.execute("INSERT INTO receipts (nr_bon, store_id, date) VALUES (?, ?, ?)",
+                       (nr_bon, store_id, date_value))
+        conn.commit()
     conn.close()
-    return rid
+    return nr_bon
 
 # --- Funcții magazine ---
 def get_stores():
@@ -155,14 +163,17 @@ def update_store_name(store_id, new_name):
 
 # --- Funcții cheltuieli ---
 def add_expense(product_id, store_id, price, quantity, date_value, receipt_id=None, discount=0.0):
-    # ensure discount column exists (best-effort)
+    # ensure discount and receipt_nr column exists (best-effort)
     ensure_expense_discount_column()
+    ensure_receipts_schema()
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
+    # receipt_id here is actually the receipt_nr (string) when provided
     if receipt_id is not None:
+        receipt_nr = str(receipt_id)
         cursor.execute(
-            "INSERT INTO expenses (product_id, store_id, price, quantity, date, receipt_id, discount) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (product_id, store_id, price, quantity, date_value, receipt_id, discount)
+            "INSERT INTO expenses (product_id, store_id, price, quantity, date, receipt_nr, discount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (product_id, store_id, price, quantity, date_value, receipt_nr, discount)
         )
     else:
         cursor.execute(
@@ -180,12 +191,12 @@ def get_expenses():
     cursor.execute("""
      SELECT e.id, p.name, s.name, e.price, e.quantity, IFNULL(e.discount, 0) as discount,
          (e.price * e.quantity - IFNULL(e.discount,0)) AS total,
-         e.date, r.nr_bon, r.id
+         e.date, r.nr_bon
      FROM expenses e
      LEFT JOIN products p ON e.product_id = p.id
      LEFT JOIN stores s ON e.store_id = s.id
-     LEFT JOIN receipts r ON e.receipt_id = r.id
-     ORDER BY COALESCE(r.id, 0) DESC, e.date DESC
+     LEFT JOIN receipts r ON e.receipt_nr = r.nr_bon
+     ORDER BY COALESCE(r.nr_bon, '') DESC, e.date DESC
     """)
     expenses = cursor.fetchall()
     conn.close()
@@ -236,11 +247,12 @@ def delete_store(store_id):
 
 
 def delete_receipt(receipt_id):
-    """Delete a receipt and any related expenses."""
+    """Delete a receipt and any related expenses. receipt_id is the nr_bon string."""
+    receipt_nr = str(receipt_id)
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM expenses WHERE receipt_id = ?", (receipt_id,))
-    cursor.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))
+    cursor.execute("DELETE FROM expenses WHERE receipt_nr = ?", (receipt_nr,))
+    cursor.execute("DELETE FROM receipts WHERE nr_bon = ?", (receipt_nr,))
     conn.commit()
     conn.close()
 
@@ -325,10 +337,8 @@ def add_line_item_route():
     receipt_id = request.form.get('receipt_id')
     if not receipt_id:
         return jsonify({'success': False, 'error': 'receipt_id_required'}), 400
-    try:
-        receipt_id = int(receipt_id)
-    except ValueError:
-        return jsonify({'success': False, 'error': 'invalid_receipt_id'}), 400
+    # receipt_id is a receipt_nr (string) referring to receipts.nr_bon
+    receipt_nr = str(receipt_id)
 
     # product may be provided as id or as new product_name + category_id
     prod_id_raw = request.form.get('product_id')
@@ -357,7 +367,7 @@ def add_line_item_route():
     # retrieve store_id from receipts table for this receipt (to populate expense.store_id)
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT store_id, date FROM receipts WHERE id = ?", (receipt_id,))
+    cursor.execute("SELECT store_id, date FROM receipts WHERE nr_bon = ?", (receipt_nr,))
     row = cursor.fetchone()
     conn.close()
     if not row:
@@ -380,7 +390,7 @@ def add_line_item_route():
     except Exception:
         discount = 0.0
 
-    expense_id = add_expense(product_id, store_id, price, qty, date_value, receipt_id=receipt_id, discount=discount)
+    expense_id = add_expense(product_id, store_id, price, qty, date_value, receipt_id=receipt_nr, discount=discount)
 
     # return a small representation for UI
     conn = sqlite3.connect('expenses.db')
@@ -407,11 +417,8 @@ def delete_receipt_route():
     receipt_id = request.form.get('receipt_id')
     if not receipt_id:
         return jsonify({'success': False, 'error': 'receipt_id_required'}), 400
-    try:
-        rid = int(receipt_id)
-    except Exception:
-        return jsonify({'success': False, 'error': 'invalid_receipt_id'}), 400
-    delete_receipt(rid)
+    # treat as receipt_nr (nr_bon)
+    delete_receipt(receipt_id)
     return jsonify({'success': True})
 
 
@@ -542,26 +549,26 @@ def cheltuieli():
     cursor = conn.cursor()
     # fetch receipts with store name
     cursor.execute("""
-        SELECT r.id, r.nr_bon, r.date, s.id, s.name
+        SELECT r.nr_bon, r.date, s.id, s.name
         FROM receipts r
         LEFT JOIN stores s ON r.store_id = s.id
-        ORDER BY r.date DESC, r.id DESC
+        ORDER BY r.date DESC
     """)
     receipts = []
     rows = cursor.fetchall()
     for r in rows:
-        rid, nr_bon, rdate, store_id, store_name = r
+        nr_bon, rdate, store_id, store_name = r
         # fetch lines for this receipt
         cursor.execute("""
             SELECT e.id, p.name, e.price, e.quantity, IFNULL(e.discount,0) as discount,
                    (e.price * e.quantity - IFNULL(e.discount,0)) AS total, e.date
             FROM expenses e
             LEFT JOIN products p ON e.product_id = p.id
-            WHERE e.receipt_id = ?
+            WHERE e.receipt_nr = ?
             ORDER BY e.id
-        """, (rid,))
+    """, (nr_bon,))
         lines = cursor.fetchall()
-        receipts.append({'id': rid, 'nr_bon': nr_bon, 'date': rdate, 'store_id': store_id, 'store_name': store_name, 'lines': lines})
+        receipts.append({'nr_bon': nr_bon, 'date': rdate, 'store_id': store_id, 'store_name': store_name, 'lines': lines})
 
     # fetch ungrouped expenses (no receipt)
     cursor.execute("""
