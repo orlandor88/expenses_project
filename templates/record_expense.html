@@ -4,6 +4,33 @@
     <meta charset="UTF-8">
     <title>Înregistrare Cheltuială</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        // Toggle new-product inputs depending on whether an existing product is selected
+        function toggleNewProductFields() {
+            const prodSelect = document.getElementById('product_id');
+            const newFields = document.getElementById('new-product-fields');
+            const prodName = document.getElementById('product_name');
+            const catSelect = document.getElementById('category_id');
+            if (!prodSelect || !newFields) return;
+            if (prodSelect.value && prodSelect.value !== '') {
+                newFields.style.display = 'none';
+                // Clear new product inputs to avoid accidental submission
+                if (prodName) prodName.value = '';
+                if (catSelect) catSelect.selectedIndex = 0;
+            } else {
+                newFields.style.display = 'block';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const prodSelect = document.getElementById('product_id');
+            if (prodSelect) {
+                prodSelect.addEventListener('change', toggleNewProductFields);
+            }
+            // Initialize on load
+            toggleNewProductFields();
+        });
+    </script>
 </head>
 <body>
     <div class="navbar">
@@ -29,15 +56,17 @@
                 </select>
 
                 <p>SAU</p>
-                <input type="text" name="product_name" placeholder="Nume produs nou (ex: 'Ciocolata')">
+                <div id="new-product-fields">
+                    <input type="text" id="product_name" name="product_name" placeholder="Nume produs nou (ex: 'Ciocolata')">
 
-                <label for="category_id">Categoria (pentru produs nou)</label>
-                <select name="category_id" id="category_id">
+                    <label for="category_id">Categoria (pentru produs nou)</label>
+                    <select name="category_id" id="category_id">
                     <option value="" selected>Alege categoria</option>
                     {% for cat in categories %}
                         <option value="{{ cat[0] }}">{{ cat[1] }}</option>
                     {% endfor %}
-                </select>
+                    </select>
+                </div>
 
                 <label for="store_id">Magazin</label>
                 <select name="store_id" id="store_id" required>
