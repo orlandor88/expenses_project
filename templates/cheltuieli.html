@@ -15,44 +15,91 @@
         <a href="/reports/stores">Rapoarte pe magazine</a>
     </div>
     <div class="container">
-        <h1>Cheltuieli</h1>
+        <h1>Cheltuieli (grupate pe bonuri)</h1>
 
         <section class="section">
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Produs</th>
-                        <th>Magazin</th>
-                        <th>Preț</th>
-                        <th>Cantitate</th>
-                        <th>Discount (lei)</th>
-                        <th>Total (lei)</th>
-                        <th>Data</th>
-                        <th>Nr. bon</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for e in expenses %}
+            <p><a href="/record_expense" class="btn">Adaugă bon</a></p>
+
+            {% if receipts %}
+                {% for r in receipts %}
+                    <div style="border:1px solid #ddd; padding:12px; margin-bottom:12px; border-radius:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong>Bon #{{ r.id }}</strong>
+                                {% if r.nr_bon %} — Nr: {{ r.nr_bon }}{% endif %}
+                                <div style="color:#555">Magazin: {{ r.store_name or '—' }} | Data: {{ r.date or '—' }}</div>
+                            </div>
+                            <div>
+                                <a class="btn" href="#" onclick="return false;">Export</a>
+                            </div>
+                        </div>
+                        <table style="margin-top:8px;">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Produs</th>
+                                    <th>Preț</th>
+                                    <th>Cantitate</th>
+                                    <th>Discount (lei)</th>
+                                    <th>Total (lei)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for line in r.lines %}
+                                    <tr>
+                                        <td>{{ line[0] }}</td>
+                                        <td>{{ line[1] }}</td>
+                                        <td>{{ line[2] }}</td>
+                                        <td>{{ line[3] }}</td>
+                                        <td>{{ line[4] }}</td>
+                                        <td>{{ line[5] }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="6">Nicio linie înregistrată</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>Nu există bonuri înregistrate.</p>
+            {% endif %}
+
+            {% if ungrouped and ungrouped|length > 0 %}
+                <h2>Articole fără bon</h2>
+                <table>
+                    <thead>
                         <tr>
-                            <td>{{ e[0] }}</td>
-                            <td>{{ e[1] }}</td>
-                            <td>{{ e[2] }}</td>
-                            <td>{{ e[3] }}</td>
-                            <td>{{ e[4] }}</td>
-                            <td>{{ e[5] }}</td>
-                            <td>{{ e[6] }}</td>
-                            <td>{{ e[7] }}</td>
-                            <td>{{ e[8] }}</td>
+                            <th>ID</th>
+                            <th>Produs</th>
+                            <th>Magazin</th>
+                            <th>Preț</th>
+                            <th>Cantitate</th>
+                            <th>Discount (lei)</th>
+                            <th>Total (lei)</th>
+                            <th>Data</th>
                         </tr>
-                    {% else %}
-                        <tr><td colspan="9">Nicio cheltuială înregistrată</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for e in ungrouped %}
+                            <tr>
+                                <td>{{ e[0] }}</td>
+                                <td>{{ e[1] }}</td>
+                                <td>{{ e[2] }}</td>
+                                <td>{{ e[3] }}</td>
+                                <td>{{ e[4] }}</td>
+                                <td>{{ e[5] }}</td>
+                                <td>{{ e[6] }}</td>
+                                <td>{{ e[7] }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="8">Nicio cheltuială fără bon</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
         </section>
 
-        <p><a href="/record_expense" class="btn">Adaugă cheltuială</a></p>
         <a href="/">⬅️ Înapoi</a>
     </div>
 </body>

@@ -537,8 +537,45 @@ def add_expense_route():
 @app.route('/cheltuieli')
 def cheltuieli():
     """Page that lists all expenses."""
-    expenses = get_expenses()
-    return render_template('cheltuieli.html', expenses=expenses)
+    # Group by receipts: fetch receipts and their lines, plus ungrouped lines
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    # fetch receipts with store name
+    cursor.execute("""
+        SELECT r.id, r.nr_bon, r.date, s.id, s.name
+        FROM receipts r
+        LEFT JOIN stores s ON r.store_id = s.id
+        ORDER BY r.date DESC, r.id DESC
+    """)
+    receipts = []
+    rows = cursor.fetchall()
+    for r in rows:
+        rid, nr_bon, rdate, store_id, store_name = r
+        # fetch lines for this receipt
+        cursor.execute("""
+            SELECT e.id, p.name, e.price, e.quantity, IFNULL(e.discount,0) as discount,
+                   (e.price * e.quantity - IFNULL(e.discount,0)) AS total, e.date
+            FROM expenses e
+            LEFT JOIN products p ON e.product_id = p.id
+            WHERE e.receipt_id = ?
+            ORDER BY e.id
+        """, (rid,))
+        lines = cursor.fetchall()
+        receipts.append({'id': rid, 'nr_bon': nr_bon, 'date': rdate, 'store_id': store_id, 'store_name': store_name, 'lines': lines})
+
+    # fetch ungrouped expenses (no receipt)
+    cursor.execute("""
+        SELECT e.id, p.name, s.name, e.price, e.quantity, IFNULL(e.discount,0) as discount,
+               (e.price * e.quantity - IFNULL(e.discount,0)) AS total, e.date
+        FROM expenses e
+        LEFT JOIN products p ON e.product_id = p.id
+        LEFT JOIN stores s ON e.store_id = s.id
+        WHERE e.receipt_id IS NULL
+        ORDER BY e.date DESC
+    """)
+    ungrouped = cursor.fetchall()
+    conn.close()
+    return render_template('cheltuieli.html', receipts=receipts, ungrouped=ungrouped)
 
 # === Funcții auxiliare pentru rapoarte ===
 def get_date_filter_clause(start_date=None, end_date=None):
