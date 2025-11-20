@@ -21,3 +21,9 @@ instance/
 # Foldere excluse
 /bonuri/
 /old/
+
+# Backups created by migration scripts
+expenses_backups/
+*.bak
+*.bak_*
+expenses.db.pre_rename_*

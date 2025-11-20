@@ -24,7 +24,11 @@ import os
 import sys
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'expenses.db')
-BACKUP_PATH = DB_PATH + '.bak'
+# backup outside the repo
+BACKUP_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'expenses_backups')
+BACKUP_DIR = os.path.normpath(BACKUP_DIR)
+os.makedirs(BACKUP_DIR, exist_ok=True)
+BACKUP_PATH = os.path.join(BACKUP_DIR, os.path.basename(DB_PATH) + '.bak')
 
 
 def backup_db():

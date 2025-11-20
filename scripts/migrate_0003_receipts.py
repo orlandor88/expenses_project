@@ -17,8 +17,11 @@ if not os.path.exists(DB):
     print('No expenses.db found at', DB)
     sys.exit(1)
 
-bak = DB + '.bak_mig0003'
-print('Creating backup:', bak)
+# place backups outside the repository for safety
+backup_dir = os.path.join(os.path.dirname(os.path.dirname(BASE)), 'expenses_backups')
+os.makedirs(backup_dir, exist_ok=True)
+bak = os.path.join(backup_dir, os.path.basename(DB) + '.bak_mig0003')
+print('Creating backup (outside repo):', bak)
 shutil.copy2(DB, bak)
 
 conn = sqlite3.connect(DB)

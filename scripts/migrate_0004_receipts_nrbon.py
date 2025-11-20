@@ -103,8 +103,11 @@ Migration 0004: Make receipts primary key be nr_bon (TEXT) and populate expenses
                     print('\nIf you are sure no app is running, re-run with --force to proceed.')
                     sys.exit(2)
 
-            bak = DB + '.bak_mig0004'
-            print('Creating backup:', bak)
+            # place backups outside the repository for safety
+            backup_dir = os.path.join(os.path.dirname(os.path.dirname(BASE)), 'expenses_backups')
+            os.makedirs(backup_dir, exist_ok=True)
+            bak = os.path.join(backup_dir, os.path.basename(DB) + '.bak_mig0004')
+            print('Creating backup (outside repo):', bak)
             shutil.copy2(DB, bak)
 
             # Open DB connection with a longer timeout and set busy_timeout to reduce 'database is locked' errors
