@@ -1,0 +1,15 @@
+# Core runtime dependencies
+Flask>=2.2.2
+
+# Migration / helper utilities
+psutil>=5.9.0
+
+# Optional / OCR and image processing (used by scripts in `old/`)
+Pillow>=9.0.0
+pytesseract>=0.3.10
+opencv-python>=4.7.0
+numpy>=1.23.0
+
+# Dev / testing (optional)
+pytest>=7.0
+flake8>=6.0
