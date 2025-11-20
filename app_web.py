@@ -498,6 +498,12 @@ def update_expense_route():
         return jsonify({'success': False, 'error': 'not_found_after_update'}), 500
     price, quantity, discount = r
     total = price * quantity - (discount or 0.0)
+    # Round total to 2 decimal places for consistent display
+    total = round(total, 2)
+    # Also round returned price/quantity/discount for consistency (keep numeric types)
+    price = round(price, 2) if isinstance(price, (int, float)) else price
+    quantity = round(quantity, 2) if isinstance(quantity, (int, float)) else quantity
+    discount = round(discount, 2) if isinstance(discount, (int, float)) else discount
     return jsonify({'success': True, 'price': price, 'quantity': quantity, 'discount': discount, 'total': total})
 
 @app.route('/add_expense', methods=['POST'])

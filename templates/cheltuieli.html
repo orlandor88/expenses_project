@@ -25,7 +25,7 @@
                     <div style="border:1px solid #ddd; padding:12px; margin-bottom:12px; border-radius:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
-                                <strong>Bon #{{ r.id }}</strong>
+                                <strong>Bon #{{ r.nr_bon }}</strong>
                                 {% if r.nr_bon %} — Nr: {{ r.nr_bon }}{% endif %}
                                 <div style="color:#555">Magazin: {{ r.store_name or '—' }} | Data: {{ r.date or '—' }}</div>
                             </div>
@@ -46,14 +46,14 @@
                             </thead>
                             <tbody>
                                 {% for line in r.lines %}
-                                    <tr>
-                                        <td>{{ line[0] }}</td>
-                                        <td>{{ line[1] }}</td>
-                                        <td>{{ line[2] }}</td>
-                                        <td>{{ line[3] }}</td>
-                                        <td>{{ line[4] }}</td>
-                                        <td>{{ line[5] }}</td>
-                                    </tr>
+                                        <tr>
+                                            <td>{{ line[0] }}</td>
+                                            <td>{{ line[1] }}</td>
+                                            <td>{{ '%.2f'|format(line[2] or 0) }}</td>
+                                            <td>{{ '%.2f'|format(line[3] or 0) }}</td>
+                                            <td>{{ '%.2f'|format(line[4] or 0) }}</td>
+                                            <td>{{ '%.2f'|format(line[5] or 0) }}</td>
+                                        </tr>
                                 {% else %}
                                     <tr><td colspan="6">Nicio linie înregistrată</td></tr>
                                 {% endfor %}
@@ -86,10 +86,10 @@
                                 <td>{{ e[0] }}</td>
                                 <td>{{ e[1] }}</td>
                                 <td>{{ e[2] }}</td>
-                                <td>{{ e[3] }}</td>
-                                <td>{{ e[4] }}</td>
-                                <td>{{ e[5] }}</td>
-                                <td>{{ e[6] }}</td>
+                                <td>{{ '%.2f'|format(e[3] or 0) }}</td>
+                                <td>{{ '%.2f'|format(e[4] or 0) }}</td>
+                                <td>{{ '%.2f'|format(e[5] or 0) }}</td>
+                                <td>{{ '%.2f'|format(e[6] or 0) }}</td>
                                 <td>{{ e[7] }}</td>
                             </tr>
                         {% else %}
