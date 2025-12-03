@@ -92,26 +92,45 @@
         let current_receipt_id = null;
 
         document.getElementById('start_receipt').addEventListener('click', async function(){
+            const startBtn = document.getElementById('start_receipt');
             const store_id = document.getElementById('header_store_id').value;
             const nr_bon = document.getElementById('header_nr_bon').value.trim();
             const date = document.getElementById('header_date').value;
             if(!store_id){ alert('Selectează magazinul'); return }
+            // prevent duplicate clicks
+            if(startBtn.disabled) return;
+            startBtn.disabled = true;
             const form = new URLSearchParams();
             form.append('store_id', store_id);
             form.append('nr_bon', nr_bon);
             form.append('date', date);
-            const res = await fetch('/create_receipt', { method:'POST', body: form });
-            const data = await res.json();
-            if(data.success){
-                current_receipt_id = data.receipt_id;
-                document.getElementById('current_receipt_id').textContent = current_receipt_id;
-                document.getElementById('receipt_area').classList.remove('hidden');
-                // disable header inputs while editing
-                document.getElementById('header_store_id').disabled = true;
-                document.getElementById('header_nr_bon').disabled = true;
-                document.getElementById('header_date').disabled = true;
-            } else {
-                alert('Eroare la crearea bonului')
+            try{
+                const res = await fetch('/create_receipt', { method:'POST', body: form });
+                if(!res.ok){
+                    // try to parse JSON error if present
+                    let errText = '';
+                    try{ const errJson = await res.json(); errText = errJson.error || JSON.stringify(errJson); }catch(e){ errText = await res.text(); }
+                    alert('Eroare la crearea bonului: ' + errText);
+                    startBtn.disabled = false;
+                    return;
+                }
+                const data = await res.json();
+                if(data && data.success){
+                    current_receipt_id = data.receipt_id;
+                    document.getElementById('current_receipt_id').textContent = current_receipt_id;
+                    document.getElementById('receipt_area').classList.remove('hidden');
+                    // disable header inputs while editing
+                    document.getElementById('header_store_id').disabled = true;
+                    document.getElementById('header_nr_bon').disabled = true;
+                    document.getElementById('header_date').disabled = true;
+                } else {
+                    alert('Eroare la crearea bonului');
+                }
+            }catch(e){
+                console.error('start_receipt error', e);
+                alert('Eroare la crearea bonului (network): ' + e.message);
+            } finally{
+                startBtn.disabled = false;
             }
         });
 

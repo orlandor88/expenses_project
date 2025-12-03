@@ -318,6 +318,11 @@ def products_search():
 @app.route('/create_receipt', methods=['POST'])
 def create_receipt_route():
     # create a receipt header and return its id
+    # log incoming request for debugging
+    try:
+        print('create_receipt called with form:', dict(request.form))
+    except Exception:
+        pass
     store_id = request.form.get('store_id')
     nr_bon = request.form.get('nr_bon', '').strip()
     date_value = request.form.get('date')
@@ -327,8 +332,13 @@ def create_receipt_route():
         store_id = int(store_id)
     except ValueError:
         return jsonify({'success': False, 'error': 'invalid_store_id'}), 400
-    rid = create_receipt(store_id, nr_bon, date_value)
-    return jsonify({'success': True, 'receipt_id': rid})
+    try:
+        rid = create_receipt(store_id, nr_bon, date_value)
+        print('created receipt id:', rid)
+        return jsonify({'success': True, 'receipt_id': rid})
+    except Exception as e:
+        print('create_receipt error:', e)
+        return jsonify({'success': False, 'error': 'internal_error', 'details': str(e)}), 500
 
 
 @app.route('/add_line_item', methods=['POST'])
@@ -583,7 +593,7 @@ def cheltuieli():
         FROM expenses e
         LEFT JOIN products p ON e.product_id = p.id
         LEFT JOIN stores s ON e.store_id = s.id
-        WHERE e.receipt_id IS NULL
+        WHERE e.receipt_nr IS NULL
         ORDER BY e.date DESC
     """)
     ungrouped = cursor.fetchall()
@@ -700,4 +710,19 @@ def report_stores():
                          start_date=start_date, end_date=end_date)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import socket
+    
+    # Get local WiFi IP (not loopback)
+    try:
+        # Connect to a non-routable address to find the local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        # Fallback to localhost if unable to determine
+        local_ip = "127.0.0.1"
+    
+    print(f"Starting app on {local_ip}:5000")
+    print(f"Access from WiFi: http://{local_ip}:5000")
+    app.run(host=local_ip, port=5000, debug=True)
