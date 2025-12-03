@@ -180,3 +180,14 @@ thead {
 .navbar a:hover {
     background-color: #0056b3;
 }
+
+/* Receipt UI extras */
+.line-actions { display: inline-flex; gap:6px; margin-left:10px }
+.small-btn { padding:6px 8px; font-size:0.9em; border-radius:4px; border:none; cursor:pointer }
+.small-btn.edit { background:#ffc107; color:#212529 }
+.small-btn.delete { background:#dc3545; color:white }
+.small-btn.undo { background:#6c757d; color:white }
+.undo-toast { position: fixed; right: 20px; bottom: 20px; background: #333; color:white; padding:10px 14px; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.2); display:flex; gap:10px; align-items:center }
+.line-item { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px; border:1px solid #eee; border-radius:6px; margin-bottom:6px }
+.line-item .meta { color:#555 }
+.editable-input { width:90px; padding:6px; border-radius:4px; border:1px solid #ccc }
