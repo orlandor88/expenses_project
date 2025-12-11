@@ -70,6 +70,11 @@
                 <input type="number" step="0.01" id="line_price" value="0.00">
                 <label>Cantitate</label>
                 <input type="number" step="0.01" id="line_quantity" value="1">
+                <label>Unitate</label>
+                <select id="line_quantity_type">
+                    <option value="buc" selected>buc (piese)</option>
+                    <option value="kg">kg (kilograme)</option>
+                </select>
                 <label>Discount (lei)</label>
                 <input type="number" step="0.01" id="line_discount" value="0.00">
                 <button id="add_line">Adaugă linie</button>
@@ -277,6 +282,7 @@
             if(cat) form.append('category_id', cat);
             form.append('price', document.getElementById('line_price').value);
             form.append('quantity', document.getElementById('line_quantity').value);
+            form.append('quantity_type', document.getElementById('line_quantity_type').value);
             form.append('discount', document.getElementById('line_discount').value);
             form.append('date', document.getElementById('header_date').value);
 
@@ -289,7 +295,8 @@
                 li.dataset.expenseId = data.expense_id;
                 const meta = document.createElement('div'); meta.className = 'meta';
                 const total = (parseFloat(data.price) * parseFloat(data.quantity) - parseFloat(data.discount || 0)).toFixed(2);
-                meta.innerHTML = `<strong>${data.product_name}</strong> <span class="meta">— ${data.quantity} x ${data.price} lei</span>`;
+                const qtyType = document.getElementById('line_quantity_type').value;
+                meta.innerHTML = `<strong>${data.product_name}</strong> <span class="meta">— ${data.quantity} ${qtyType} x ${data.price} lei</span>`;
                 const right = document.createElement('div');
                 right.innerHTML = `<span class="meta">Discount: ${parseFloat(data.discount||0).toFixed(2)} lei</span> <span class="meta" style="margin-left:8px">Total: ${total} lei</span>`;
                 const actions = document.createElement('div'); actions.className='line-actions';

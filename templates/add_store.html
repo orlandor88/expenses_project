@@ -66,6 +66,14 @@
         <h1>Adaugă magazin</h1>
         <form method="POST" action="/add_store">
             <input type="text" name="name" placeholder="Nume magazin" required>
+            <label for="store_type">Tip magazin</label>
+            <select name="store_type" id="store_type">
+                <option value="">— Niciun tip —</option>
+                <option value="farmacii">Farmacie</option>
+                <option value="supermarket">Supermarket</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="benzinarie">Benzinărie</option>
+            </select>
             <button type="submit">Adaugă magazin</button>
         </form>
 
@@ -75,6 +83,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Nume</th>
+                    <th>Tip</th>
                     <th>Acțiuni</th>
                 </tr>
             </thead>
@@ -86,10 +95,20 @@
                         <form method="POST" action="/stores/update" class="inline-form" id="edit-form-{{ s[0] }}" style="display: none;">
                             <input type="hidden" name="store_id" value="{{ s[0] }}">
                             <input type="text" name="name" value="{{ s[1] }}" required>
+                            <select name="store_type">
+                                <option value="">— Niciun tip —</option>
+                                <option value="farmacii" {% if s[2] == 'farmacii' %}selected{% endif %}>Farmacie</option>
+                                <option value="supermarket" {% if s[2] == 'supermarket' %}selected{% endif %}>Supermarket</option>
+                                <option value="restaurant" {% if s[2] == 'restaurant' %}selected{% endif %}>Restaurant</option>
+                                <option value="benzinarie" {% if s[2] == 'benzinarie' %}selected{% endif %}>Benzinărie</option>
+                            </select>
                             <button type="submit">Salvează</button>
                             <button type="button" onclick="toggleEdit('{{ s[0] }}')">Anulează</button>
                         </form>
                         <span id="name-{{ s[0] }}">{{ s[1] }}</span>
+                    </td>
+                    <td>
+                        <span id="type-{{ s[0] }}">{{ s[2] or '—' }}</span>
                     </td>
                     <td>
                         <button onclick="toggleEdit('{{ s[0] }}')" id="edit-btn-{{ s[0] }}">Editează</button>
@@ -100,7 +119,7 @@
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="3">Niciun magazin înregistrat</td></tr>
+                <tr><td colspan="4">Niciun magazin înregistrat</td></tr>
                 {% endfor %}
             </tbody>
         </table>

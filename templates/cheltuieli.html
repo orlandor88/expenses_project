@@ -40,6 +40,7 @@
                                     <th>Produs</th>
                                     <th>Preț</th>
                                     <th>Cantitate</th>
+                                    <th>Unitate</th>
                                     <th>Discount (lei)</th>
                                     <th>Total (lei)</th>
                                 </tr>
@@ -51,11 +52,12 @@
                                             <td>{{ line[1] }}</td>
                                             <td>{{ '%.2f'|format(line[2] or 0) }}</td>
                                             <td>{{ '%.2f'|format(line[3] or 0) }}</td>
+                                            <td>{{ line[6] or 'buc' }}</td>
                                             <td>{{ '%.2f'|format(line[4] or 0) }}</td>
                                             <td>{{ '%.2f'|format(line[5] or 0) }}</td>
                                         </tr>
                                 {% else %}
-                                    <tr><td colspan="6">Nicio linie înregistrată</td></tr>
+                                    <tr><td colspan="7">Nicio linie înregistrată</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

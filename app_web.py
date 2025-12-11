@@ -122,7 +122,7 @@ def create_receipt(store_id, nr_bon, date_value):
 def get_stores():
     conn = sqlite3.connect('expenses.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name FROM stores ORDER BY name")
+    cursor.execute("SELECT id, name, store_type FROM stores ORDER BY name")
     stores = cursor.fetchall()
     conn.close()
     return stores
@@ -227,12 +227,27 @@ def add_product_route():
 
 @app.route('/add_store', methods=['POST'])
 def add_store_route():
-    name = request.form['name'].strip()
-    success, message = add_store(name)
-    return render_template('add_store.html', 
+    name = request.form.get('name', '').strip()
+    store_type = request.form.get('store_type', '').strip()
+    
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM stores WHERE UPPER(name) = UPPER(?)", (name,))
+    if cursor.fetchone():
+        conn.close()
+        return render_template('add_store.html', 
+                             stores=get_stores(),
+                             message=f"Magazinul '{name.upper()}' există deja!",
+                             success=False)
+    
+    name = name.upper()
+    cursor.execute("INSERT INTO stores (name, store_type) VALUES (?, ?)", (name, store_type if store_type else None))
+    conn.commit()
+    conn.close()
+    return render_template('add_store.html',
                          stores=get_stores(),
-                         message=message,
-                         success=success)
+                         message=f"Magazinul '{name}' a fost adăugat cu succes!",
+                         success=True)
 
 
 def delete_store(store_id):
@@ -267,8 +282,15 @@ def delete_store_route():
 def update_store_route():
     store_id = int(request.form['store_id'])
     new_name = request.form['name'].strip()
-    if new_name:  # Ensure name is not empty
-        update_store_name(store_id, new_name)
+    store_type = request.form.get('store_type', '').strip()
+    
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    new_name = new_name.upper()
+    cursor.execute("UPDATE stores SET name = ?, store_type = ? WHERE id = ?",
+                   (new_name, store_type if store_type else None, store_id))
+    conn.commit()
+    conn.close()
     return redirect('/stores/new')
 
 @app.route('/stores/new')
@@ -372,6 +394,7 @@ def add_line_item_route():
 
     price = request.form.get('price')
     qty = request.form.get('quantity')
+    quantity_type = request.form.get('quantity_type', 'buc')  # default to 'buc'
     discount = request.form.get('discount')
     date_value = request.form.get('date')
     # retrieve store_id from receipts table for this receipt (to populate expense.store_id)
@@ -400,7 +423,16 @@ def add_line_item_route():
     except Exception:
         discount = 0.0
 
-    expense_id = add_expense(product_id, store_id, price, qty, date_value, receipt_id=receipt_nr, discount=discount)
+    # Insert with quantity_type
+    conn = sqlite3.connect('expenses.db')
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO expenses (product_id, store_id, price, quantity, date, receipt_nr, discount, quantity_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (product_id, store_id, price, qty, date_value, receipt_nr, discount, quantity_type)
+    )
+    conn.commit()
+    expense_id = cursor.lastrowid
+    conn.close()
 
     # return a small representation for UI
     conn = sqlite3.connect('expenses.db')
@@ -410,7 +442,7 @@ def add_line_item_route():
     pname = r[0] if r else ''
     conn.close()
 
-    return jsonify({'success': True, 'expense_id': expense_id, 'product_name': pname, 'price': price, 'quantity': qty, 'discount': discount})
+    return jsonify({'success': True, 'expense_id': expense_id, 'product_name': pname, 'price': price, 'quantity': qty, 'quantity_type': quantity_type, 'discount': discount})
 
 
 @app.route('/complete_receipt', methods=['POST'])
@@ -577,7 +609,7 @@ def cheltuieli():
         # fetch lines for this receipt
         cursor.execute("""
             SELECT e.id, p.name, e.price, e.quantity, IFNULL(e.discount,0) as discount,
-                   (e.price * e.quantity - IFNULL(e.discount,0)) AS total, e.date
+                   (e.price * e.quantity - IFNULL(e.discount,0)) AS total, IFNULL(e.quantity_type,'buc') as quantity_type, e.date
             FROM expenses e
             LEFT JOIN products p ON e.product_id = p.id
             WHERE e.receipt_nr = ?
